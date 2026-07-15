@@ -1,11 +1,4 @@
-import {
-  type KeyboardEvent as ReactKeyboardEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   applyMode,
@@ -15,85 +8,32 @@ import {
   type ResolvedTheme,
 } from "./theme";
 import {
-  getItems,
-  getGroups,
-  getImageData,
-  deleteItem,
-  updateItem,
+  getSettings,
+  saveSettings,
   copyItem,
   pasteItem,
   hideMainWindow,
-  getSettings,
-  saveSettings,
-  createGroup,
   updateGroup,
-  deleteGroup,
-  type GetItemsOpts,
+  ApiError,
 } from "./api";
+import { useClipboardData } from "./hooks/useClipboardData";
+import { useKeyboardNav } from "./hooks/useKeyboardNav";
+import { ItemList } from "./components/ItemList";
+import { SettingsPanel } from "./components/SettingsPanel";
+import { EditDialog } from "./components/EditDialog";
+import { fuzzyMatch } from "./utils";
 import type { ClipboardItem, Group, Settings, ThemeMode } from "./types";
 import "./App.css";
 
 const isTauriEnv = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-const GROUP_COLORS = [
-  "#3b82f6",
-  "#ef4444",
-  "#22c55e",
-  "#f59e0b",
-  "#a855f7",
-  "#ec4899",
-  "#14b8a6",
-  "#64748b",
-];
-
-function fmtTime(t: number): string {
-  const d = new Date(t);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-
-/** 子序列模糊匹配 */
-function fuzzyMatch(text: string, q: string): boolean {
-  if (!q) return true;
-  const t = text.toLowerCase();
-  const query = q.toLowerCase();
-  let i = 0;
-  for (const ch of t) {
-    if (ch === query[i]) i++;
-    if (i === query.length) return true;
-  }
-  return false;
-}
-
-function ImageThumb({ id }: { id: number }) {
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true;
-    getImageData(id)
-      .then((d) => {
-        if (alive) setSrc(d);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [id]);
-  return <div className="thumb">{src ? <img src={src} alt="" /> : "⏳"}</div>;
-}
-
-/** 顶层 useEffect 事件监听 */
-function App() {
+export default function App() {
   const [mode, setMode] = useState<ThemeMode>(getStoredMode);
-  const [settings, setSettings] = useState<Settings>({
-    theme: "system",
-    auto_clean_days: 30,
-  });
-  const [items, setItems] = useState<ClipboardItem[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [settings, setSettings] = useState<Settings>({ theme: "system", auto_clean_days: 30 });
   const [tab, setTab] = useState<"fav" | "all">("fav");
   const [groupFilter, setGroupFilter] = useState<number | null>(null);
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState(0);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editItem, setEditItem] = useState<ClipboardItem | null>(null);
@@ -101,14 +41,24 @@ function App() {
   const [editGroup, setEditGroup] = useState<number | null>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
-  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const itemRefs = useRef(new Map<number, HTMLDivElement>());
+
+  const { items, groups, toggleFav, remove, saveItem, addGroup, removeGroup } = useClipboardData(
+    tab,
+    groupFilter,
+  );
+
+  const registerRef = useCallback((id: number, el: HTMLDivElement | null) => {
+    if (el) itemRefs.current.set(id, el);
+    else itemRefs.current.delete(id);
+  }, []);
 
   // 应用主题
   useEffect(() => {
     applyMode(mode);
   }, [mode]);
 
-  // 跟随系统时监听系统切换
+  // 跟随系统主题
   useEffect(() => {
     if (mode !== "system") return;
     return watchSystemTheme((t: ResolvedTheme) => {
@@ -116,43 +66,15 @@ function App() {
     });
   }, [mode]);
 
-  const refresh = useCallback(async () => {
-    try {
-      const opts: GetItemsOpts = { limit: 500 };
-      if (tab === "fav") opts.favorite = 1;
-      if (groupFilter != null) opts.groupId = groupFilter;
-      const [it, gr] = await Promise.all([getItems(opts), getGroups()]);
-      setItems(it);
-      setGroups(gr);
-    } catch (e) {
-      console.error(e);
-    }
-  }, [tab, groupFilter]);
-
-  // 初始化：加载设置 + 首次刷新
+  // 初始化：加载设置。失败仅记录日志，使用默认设置兜底（不静默吞错）
   useEffect(() => {
     if (!isTauriEnv) return;
     getSettings()
       .then((s) => {
         setSettings(s);
-        setMode(s.theme as ThemeMode);
+        setMode(s.theme);
       })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  // 实时接收剪贴板监听推送
-  useEffect(() => {
-    const un = listen<ClipboardItem>("clipboard-new", (e) => {
-      const it = e.payload;
-      setItems((prev) => [it, ...prev.filter((i) => i.id !== it.id)]);
-    });
-    return () => {
-      un.then((u) => u());
-    };
+      .catch((e) => console.error("加载设置失败", e));
   }, []);
 
   // 浮层行为：呼出时聚焦搜索框；失焦时自动隐藏窗口
@@ -160,11 +82,11 @@ function App() {
     if (!isTauriEnv) return;
     const offShow = listen("palette-show", () => {
       setSearch("");
-      setSelected(0);
+      setSelectedId(null);
       setTimeout(() => searchRef.current?.focus(), 30);
     });
     const offBlur = listen("tauri://blur", () => {
-      void hideMainWindow();
+      void hideMainWindow().catch((e) => console.error("隐藏窗口失败", e));
     });
     let unShow: (() => void) | undefined;
     let unBlur: (() => void) | undefined;
@@ -178,72 +100,101 @@ function App() {
     };
   }, []);
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToast(msg);
     window.setTimeout(() => setToast(null), 1600);
-  };
+  }, []);
 
-  const onPaste = async (it: ClipboardItem) => {
-    try {
-      await pasteItem(it.id);
-    } catch (e) {
-      console.error(e);
-      showToast("粘贴失败：请授权辅助功能");
-    }
-  };
+  const onPaste = useCallback(
+    async (it: ClipboardItem) => {
+      try {
+        await pasteItem(it.id);
+      } catch (e) {
+        console.error(e);
+        showToast(e instanceof ApiError ? e.message : "粘贴失败：请授权辅助功能");
+      }
+    },
+    [showToast],
+  );
 
-  const onCopy = async (it: ClipboardItem) => {
-    try {
-      await copyItem(it.id);
-      showToast("已复制");
-    } catch (e) {
-      console.error(e);
-      showToast("复制失败");
-    }
-  };
+  const onCopy = useCallback(
+    async (it: ClipboardItem) => {
+      try {
+        await copyItem(it.id);
+        showToast("已复制");
+      } catch (e) {
+        console.error(e);
+        showToast(e instanceof ApiError ? e.message : "复制失败");
+      }
+    },
+    [showToast],
+  );
 
-  const onToggleFav = async (it: ClipboardItem) => {
-    await updateItem(it.id, { favorite: it.favorite ? 0 : 1 });
-    setItems((prev) =>
-      prev.map((i) => (i.id === it.id ? { ...i, favorite: i.favorite ? 0 : 1 } : i)),
-    );
-  };
+  const onToggleFav = useCallback(
+    (it: ClipboardItem) => {
+      toggleFav(it).catch((e) => {
+        console.error(e);
+        showToast("操作失败，请重试");
+      });
+    },
+    [toggleFav, showToast],
+  );
 
-  const onDelete = async (id: number) => {
-    await deleteItem(id);
-    setItems((prev) => prev.filter((i) => i.id !== id));
-  };
+  const onDelete = useCallback(
+    (id: number) => {
+      remove(id).catch((e) => {
+        console.error(e);
+        showToast("删除失败，请重试");
+      });
+    },
+    [remove, showToast],
+  );
 
-  const openSearch = () => {
-    searchRef.current?.focus();
-  };
-
-  const openEdit = (it: ClipboardItem) => {
+  const openEdit = useCallback((it: ClipboardItem) => {
     setEditItem(it);
     setEditName(it.name || it.content || "");
     setEditGroup(it.group_id);
-  };
+  }, []);
 
-  const saveEdit = async () => {
+  const saveEdit = useCallback(() => {
     if (!editItem) return;
-    await updateItem(editItem.id, {
-      name: editName.trim() || null,
-      groupId: editGroup,
-    });
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === editItem.id ? { ...i, name: editName.trim() || null, group_id: editGroup } : i,
-      ),
-    );
-    setEditItem(null);
-  };
+    const id = editItem.id;
+    const name = editName.trim() || null;
+    const groupId = editGroup;
+    saveItem(id, name, groupId)
+      .then(() => setEditItem(null))
+      .catch((e) => {
+        console.error(e);
+        showToast("保存失败，请重试");
+      });
+  }, [editItem, editName, editGroup, saveItem, showToast]);
 
-  const onAddGroup = async () => {
-    const color = GROUP_COLORS[groups.length % GROUP_COLORS.length];
-    await createGroup("新分组", color);
-    const gr = await getGroups();
-    setGroups(gr);
-  };
+  const onAddGroup = useCallback(() => {
+    addGroup().catch((e) => {
+      console.error(e);
+      showToast("新建分组失败");
+    });
+  }, [addGroup, showToast]);
+
+  const onUpdateGroup = useCallback(
+    (id: number, patch: Partial<Pick<Group, "name" | "color">>) => {
+      updateGroup(id, patch).catch((e) => {
+        console.error(e);
+        showToast("更新分组失败");
+      });
+    },
+    [showToast],
+  );
+
+  const onDeleteGroup = useCallback(
+    (id: number) => {
+      removeGroup(id).catch((e) => {
+        console.error(e);
+        showToast("删除分组失败");
+      });
+    },
+    [removeGroup, showToast],
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim();
@@ -251,51 +202,70 @@ function App() {
     return items.filter((i) => fuzzyMatch(i.content || "", q) || fuzzyMatch(i.name || "", q));
   }, [items, search]);
 
+  // 选中以业务 id 驱动：过滤后当前 id 失效则回退到第一条
   useEffect(() => {
-    setSelected((s) => (filtered.length === 0 ? 0 : Math.min(s, filtered.length - 1)));
-  }, [filtered]);
-
-  useEffect(() => {
-    itemRefs.current[selected]?.scrollIntoView({ block: "nearest" });
-  }, [selected, filtered]);
-
-  const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSelected((s) => Math.min(s + 1, Math.max(filtered.length - 1, 0)));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSelected((s) => Math.max(s - 1, 0));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const it = filtered[selected];
-      if (it) onPaste(it);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      if (settingsOpen) {
-        setSettingsOpen(false);
-      } else if (editItem) {
-        setEditItem(null);
-      } else if (isTauriEnv) {
-        void hideMainWindow();
-      }
+    if (filtered.length === 0) {
+      if (selectedId !== null) setSelectedId(null);
+      return;
     }
-  };
+    if (!filtered.some((i) => i.id === selectedId)) {
+      setSelectedId(filtered[0].id);
+    }
+  }, [filtered, selectedId]);
 
-  const groupName = (id: number | null) =>
-    id == null ? null : (groups.find((g) => g.id === id)?.name ?? null);
-  const groupColor = (id: number | null) =>
-    id == null ? null : (groups.find((g) => g.id === id)?.color ?? null);
+  useEffect(() => {
+    if (selectedId == null) return;
+    itemRefs.current.get(selectedId)?.scrollIntoView({ block: "nearest" });
+  }, [selectedId, filtered]);
 
-  const setThemeMode = (m: ThemeMode) => {
-    setMode(m);
-    setSettings((s) => ({ ...s, theme: m }));
-    saveSettings({ theme: m }).catch(() => {});
-  };
+  const groupName = useCallback(
+    (id: number | null) => (id == null ? null : (groups.find((g) => g.id === id)?.name ?? null)),
+    [groups],
+  );
+  const groupColor = useCallback(
+    (id: number | null) => (id == null ? null : (groups.find((g) => g.id === id)?.color ?? null)),
+    [groups],
+  );
 
-  const setCleanDays = (d: number) => {
-    setSettings((s) => ({ ...s, auto_clean_days: d }));
-    saveSettings({ auto_clean_days: d }).catch(() => {});
+  const handleEscape = useCallback(() => {
+    if (settingsOpen) setSettingsOpen(false);
+    else if (editItem) setEditItem(null);
+    else if (isTauriEnv) void hideMainWindow().catch((e) => console.error(e));
+  }, [settingsOpen, editItem]);
+
+  const onKeyDown = useKeyboardNav({
+    filtered,
+    selectedId,
+    setSelectedId,
+    onEnter: onPaste,
+    onEscape: handleEscape,
+  });
+
+  const setThemeMode = useCallback(
+    (m: ThemeMode) => {
+      setMode(m);
+      setSettings((s) => ({ ...s, theme: m }));
+      saveSettings({ theme: m }).catch((e) => {
+        console.error(e);
+        showToast(e instanceof ApiError ? e.message : "保存设置失败");
+      });
+    },
+    [showToast],
+  );
+
+  const setCleanDays = useCallback(
+    (d: number) => {
+      setSettings((s) => ({ ...s, auto_clean_days: d }));
+      saveSettings({ auto_clean_days: d }).catch((e) => {
+        console.error(e);
+        showToast(e instanceof ApiError ? e.message : "保存设置失败");
+      });
+    },
+    [showToast],
+  );
+
+  const openSearch = () => {
+    searchRef.current?.focus();
   };
 
   return (
@@ -355,227 +325,46 @@ function App() {
         </div>
       )}
 
-      <div className="list">
-        {filtered.length === 0 && (
-          <div className="empty">{tab === "fav" ? "还没有收藏的内容" : "暂无剪贴板记录"}</div>
-        )}
-        {filtered.map((it, i) => (
-          <div
-            key={it.id}
-            ref={(el) => {
-              itemRefs.current[i] = el;
-            }}
-            className={`item${selected === i ? " selected" : ""}`}
-            onClick={() => onPaste(it)}
-          >
-            {it.item_type === "image" ? (
-              <ImageThumb id={it.id} />
-            ) : (
-              <div className="thumb text-thumb">📄</div>
-            )}
-            <div className="item-body">
-              <div className="item-text">
-                {it.name || it.content || (it.item_type === "image" ? "[图片]" : "[内容]")}
-              </div>
-              <div className="item-meta">
-                <span>{it.app_source || "未知来源"}</span>
-                {groupName(it.group_id) && (
-                  <>
-                    <span>·</span>
-                    <span style={{ color: groupColor(it.group_id) || undefined }}>
-                      {groupName(it.group_id)}
-                    </span>
-                  </>
-                )}
-                <span>·</span>
-                <span>{fmtTime(it.created_at)}</span>
-                {it.favorite ? <span className="star">★</span> : null}
-              </div>
-            </div>
-            <div className="item-actions">
-              <button
-                className="icon-btn"
-                title="仅复制"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCopy(it);
-                }}
-              >
-                📋
-              </button>
-              <button
-                className="icon-btn"
-                title="收藏"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleFav(it);
-                }}
-              >
-                {it.favorite ? "★" : "☆"}
-              </button>
-              <button
-                className="icon-btn"
-                title="编辑 / 分组"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openEdit(it);
-                }}
-              >
-                ✎
-              </button>
-              <button
-                className="icon-btn danger"
-                title="删除"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(it.id);
-                }}
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+      <ItemList
+        items={filtered}
+        selectedId={selectedId}
+        registerRef={registerRef}
+        onSelect={setSelectedId}
+        onPaste={onPaste}
+        onCopy={onCopy}
+        onToggleFav={onToggleFav}
+        onEdit={openEdit}
+        onDelete={onDelete}
+        groupName={groupName}
+        groupColor={groupColor}
+        emptyText={tab === "fav" ? "还没有收藏的内容" : "暂无剪贴板记录"}
+      />
 
       {toast && <div className="toast">{toast}</div>}
 
-      {/* 设置面板 */}
-      {settingsOpen && (
-        <div className="overlay" onClick={() => setSettingsOpen(false)}>
-          <div className="panel" onClick={(e) => e.stopPropagation()}>
-            <div className="panel-head">
-              <span>设置</span>
-              <button className="icon-btn" onClick={() => setSettingsOpen(false)}>
-                ✕
-              </button>
-            </div>
+      <SettingsPanel
+        open={settingsOpen}
+        mode={mode}
+        settings={settings}
+        groups={groups}
+        onClose={() => setSettingsOpen(false)}
+        onThemeMode={setThemeMode}
+        onCleanDays={setCleanDays}
+        onAddGroup={onAddGroup}
+        onUpdateGroup={onUpdateGroup}
+        onDeleteGroup={onDeleteGroup}
+      />
 
-            <div className="field">
-              <label>主题</label>
-              <div className="segmented">
-                {(["system", "light", "dark"] as ThemeMode[]).map((m) => (
-                  <button
-                    key={m}
-                    className={mode === m ? "active" : ""}
-                    onClick={() => setThemeMode(m)}
-                  >
-                    {m === "system" ? "跟随系统" : m === "light" ? "亮色" : "暗色"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="field">
-              <label>自动清理剪贴板</label>
-              <div className="segmented">
-                {[
-                  { d: 0, t: "关闭" },
-                  { d: 1, t: "1 天" },
-                  { d: 7, t: "7 天" },
-                  { d: 30, t: "30 天" },
-                ].map((o) => (
-                  <button
-                    key={o.d}
-                    className={settings.auto_clean_days === o.d ? "active" : ""}
-                    onClick={() => setCleanDays(o.d)}
-                  >
-                    {o.t}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="field">
-              <label>分组管理</label>
-              <div className="group-list">
-                {groups.map((g) => (
-                  <div className="group-row" key={g.id}>
-                    <input
-                      type="color"
-                      className="color-input"
-                      value={g.color}
-                      onChange={(e) => updateGroup(g.id, { color: e.target.value }).catch(() => {})}
-                    />
-                    <input
-                      className="group-name"
-                      defaultValue={g.name}
-                      onBlur={(e) => updateGroup(g.id, { name: e.target.value }).catch(() => {})}
-                    />
-                    <button
-                      className="icon-btn danger"
-                      title="删除分组"
-                      onClick={async () => {
-                        await deleteGroup(g.id);
-                        setGroups(await getGroups());
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-                <button className="add-group" onClick={onAddGroup}>
-                  + 新建分组
-                </button>
-              </div>
-            </div>
-
-            <div className="panel-tip">
-              快捷键：Cmd+Shift+V 呼出 / 隐藏 · 点击托盘或 Dock 图标也可显示
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 条目编辑弹窗 */}
-      {editItem && (
-        <div className="overlay" onClick={() => setEditItem(null)}>
-          <div className="panel" onClick={(e) => e.stopPropagation()}>
-            <div className="panel-head">
-              <span>编辑条目</span>
-              <button className="icon-btn" onClick={() => setEditItem(null)}>
-                ✕
-              </button>
-            </div>
-            <div className="field">
-              <label>名称</label>
-              <input
-                className="text-input"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder="留空则显示原文"
-              />
-            </div>
-            <div className="field">
-              <label>分组</label>
-              <select
-                className="text-input"
-                value={editGroup ?? ""}
-                onChange={(e) =>
-                  setEditGroup(e.target.value === "" ? null : Number(e.target.value))
-                }
-              >
-                <option value="">无分组</option>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="panel-actions">
-              <button className="btn" onClick={() => setEditItem(null)}>
-                取消
-              </button>
-              <button className="btn primary" onClick={saveEdit}>
-                保存
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <EditDialog
+        item={editItem}
+        editName={editName}
+        editGroup={editGroup}
+        groups={groups}
+        onNameChange={setEditName}
+        onGroupChange={setEditGroup}
+        onSave={saveEdit}
+        onClose={() => setEditItem(null)}
+      />
     </div>
   );
 }
-
-export default App;
