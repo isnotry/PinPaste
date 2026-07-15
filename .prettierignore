@@ -1,0 +1,8 @@
+node_modules
+dist
+src-tauri
+coverage
+package-lock.json
+.husky
+*.min.*
+*.svg
