@@ -1,76 +1,160 @@
 # PinPaste
 
-跨平台剪贴板管理器（桌面端）。Tauri 2 + React 19 + TypeScript + Vite。
+轻量剪贴板管理器，自动记录你复制过的所有内容，随用随查。
 
-## 技术栈
+Tauri 2 + React 19 + TypeScript + Vite，macOS 优先。
 
-- 前端：React 19 / TypeScript / Vite 7
-- 桌面壳：Tauri 2（Rust，见 `src-tauri/`）
-- 质量护栏：ESLint 9 + Prettier 3 + Vitest 3 + husky + lint-staged + GitHub Actions
+## 功能一览
 
-## 工程规范与质量门禁
+- **自动监听剪贴板**：文本和图片都会自动记录，最多保留 1000 条
+- **按 App 来源分类**：每条记录自动标记来源应用（如 Safari、微信、VS Code），可按来源筛选
+- **搜索过滤**：输入关键词即时过滤，支持空格分词 AND 匹配，大小写不敏感
+- **收藏常用内容**：一键收藏，收藏列表独立分组管理
+- **编辑内容**：随时修改已记录的文本内容
+- **窗口置顶**：需要时一键置顶，始终浮在最前
+- **图片预览**：图片记录支持缩略图和大图预览
 
-本项目把"代码质量把控"固化成了可执行的流程，而不是靠自觉：
+## 操作指南
 
-- **规范即代码**：ESLint + Prettier 统一风格，提交前自动格式化。
-- **质量门禁**：本地 `husky` 在 `git commit` 时对改动文件跑 lint + format；CI 在每次 push / PR 跑 `lint` / `format:check` / `typecheck` / `test`，任一不过则阻断合并。
-- **评审文化**：每个 PR 至少 1 人评审，对照 `docs/CODE_REVIEW_CHECKLIST.md`，模板见 `.github/pull_request_template.md`。
-- **能力提升**：资深开发者定期复盘，范例见 `docs/CODE_REVIEW_NOTES.md`。
+### 基本操作
+
+| 操作                   | 效果                                       |
+| ---------------------- | ------------------------------------------ |
+| **双击条目**           | 复制该条目内容到剪贴板，弹出「已复制」提示 |
+| **右键条目**           | 打开菜单，选择「编辑」进入编辑弹窗         |
+| **单击条目**           | 选中条目（高亮显示）                       |
+| **Backspace / Delete** | 删除选中的条目                             |
+
+### 编辑弹窗
+
+右键条目 → 选择「编辑」，打开编辑窗口：
+
+- **文本内容**：可直接在文本框中编辑，点击「保存」更新记录
+- **图片内容**：只读预览，不可编辑
+- **收藏切换**：点击星标按钮切换收藏状态
+- **删除**：点击底部「删除」按钮删除该条目
+- **关闭**：点击遮罩层或按 Esc 关闭弹窗
+
+### 搜索
+
+- 顶部搜索框输入关键词，列表实时过滤
+- 多个关键词用空格分隔，匹配需同时包含所有关键词（AND 逻辑）
+- 大小写不敏感
+
+### Tab 切换
+
+- **全部**：显示所有剪贴板记录，可按来源 App 筛选
+- **收藏**：只显示已收藏的记录，可按分组筛选
+
+### 来源筛选
+
+在「全部」Tab 下，点击底部来源 chips 可按 App 过滤：
+
+- 显示所有曾记录过剪贴板内容的 App 名称
+- 点击某个 App 只显示该 App 复制的记录
+- 点击「全部」恢复显示所有来源
+
+### 窗口置顶
+
+- 点击侧边栏的置顶按钮，窗口将始终浮在其他窗口之上
+- 再次点击取消置顶
+
+### 自动清理
+
+- 默认保留 30 天内的记录，超期自动清理（收藏的记录不会被清理）
+- 可在设置中调整保留天数，设为 0 则关闭自动清理
+
+## 快捷键
+
+| 快捷键                 | 效果                           |
+| ---------------------- | ------------------------------ |
+| `↑` / `↓`              | 上下移动选中条目               |
+| `Enter`                | 粘贴选中条目内容到当前输入位置 |
+| `Backspace` / `Delete` | 删除选中条目                   |
+| `Esc`                  | 清空搜索框 / 关闭弹窗          |
+| `Cmd + F`              | 聚焦搜索框                     |
+
+> 粘贴功能需要授予辅助功能权限（macOS 首次使用会提示授权）
 
 ## 本地开发
 
+### 环境要求
+
+- Node.js 22+
+- Rust（stable 工具链）
+- macOS：Xcode Command Line Tools
+
+### 启动
+
 ```bash
-npm install          # 安装依赖（含质量工具）
-npm run dev          # 启动前端开发服务器
-npm run tauri dev    # 启动完整桌面应用（需 Rust 工具链）
+npm install          # 安装前端依赖
+npm run tauri dev    # 启动完整桌面应用（前端 + Rust 后端）
 ```
 
-> 首次拉取代码建议先跑一次 `npm run format`，把历史文件统一到团队格式基线，单独提交这次"格式基线"改动。
-
-## 脚本
+### 脚本
 
 | 命令                   | 作用                         |
 | ---------------------- | ---------------------------- |
-| `npm run dev`          | 前端开发服务器               |
-| `npm run build`        | `tsc && vite build` 生产构建 |
+| `npm run dev`          | 仅启动前端开发服务器         |
+| `npm run build`        | 生产构建（tsc + vite build） |
+| `npm run tauri dev`    | 启动桌面应用（开发模式）     |
+| `npm run tauri build`  | 打包桌面应用（发布模式）     |
 | `npm run lint`         | ESLint 静态检查              |
-| `npm run format`       | Prettier 格式化全量文件      |
-| `npm run format:check` | 仅检查格式是否达标（CI 用）  |
-| `npm run typecheck`    | `tsc --noEmit` 类型检查      |
-| `npm run test`         | Vitest 跑单测                |
+| `npm run format`       | Prettier 格式化全部文件      |
+| `npm run format:check` | 仅检查格式（CI 用）          |
+| `npm run typecheck`    | TypeScript 类型检查          |
+| `npm run test`         | Vitest 单元测试              |
 | `npm run test:watch`   | Vitest 监听模式              |
 
-## 测试
+## 技术栈
 
-用 Vitest + Testing Library，环境为 jsdom。纯逻辑（如 `src/theme.ts` 的主题解析）已覆盖示例测试，新增逻辑请同步补测。
+| 层       | 技术                                      |
+| -------- | ----------------------------------------- |
+| 前端     | React 19 / TypeScript / Vite 7            |
+| 桌面壳   | Tauri 2（Rust）                           |
+| 样式     | 纯 CSS（无 UI 框架）                      |
+| 质量护栏 | ESLint 9 / Prettier 3 / Vitest 3          |
+| Git 钩子 | husky + lint-staged                       |
+| CI       | GitHub Actions（lint / typecheck / test） |
 
-```bash
-npm run test
+## 项目结构
+
+```
+pinpaste/
+├── src/                    # 前端源码
+│   ├── components/         # React 组件
+│   │   ├── ItemList.tsx    # 列表容器
+│   │   ├── ItemRow.tsx     # 单条记录行
+│   │   ├── EditDialog.tsx  # 编辑弹窗
+│   │   ├── ImageThumb.tsx  # 图片缩略图
+│   │   └── ImagePreview.tsx# 图片大图预览
+│   ├── hooks/              # 自定义 Hook
+│   │   ├── useClipboardData.ts  # 剪贴板数据管理
+│   │   └── useKeyboardNav.ts    # 键盘导航
+│   ├── api.ts              # Tauri 后端调用封装
+│   ├── App.tsx             # 主应用
+│   └── App.css             # 全局样式
+├── src-tauri/              # Rust 后端
+│   ├── src/lib.rs          # 核心逻辑（监听、存储、窗口管理）
+│   ├── Cargo.toml          # Rust 依赖
+│   └── capabilities/       # Tauri 权限配置
+└── package.json
 ```
 
-## 提交与评审流程
+## 质量门禁
 
-详见 `CONTRIBUTING.md`。要点：
+- **提交前**：husky + lint-staged 自动对改动文件跑 ESLint + Prettier
+- **CI**：每次 push / PR 跑 `lint` / `format:check` / `typecheck` / `test`，任一不过则阻断合并
+- **测试**：Vitest + Testing Library，环境为 jsdom
 
-1. 从 `main` 切功能分支
-2. 提交前自查 `docs/CODE_REVIEW_CHECKLIST.md`，跑 `lint` / `format` / `typecheck` / `test`
-3. `git commit` 自动触发 husky → lint-staged 对本提交文件做 lint + format
-4. 提 PR（带模板信息），CI 全绿 + 1 人评审通过方可合并
+## 版本历史
 
-## 推荐 IDE
+| 版本   | 说明                                                                             |
+| ------ | -------------------------------------------------------------------------------- |
+| v0.3.0 | 功能完整版：App 来源绑定、搜索、编辑弹窗、收藏重写、置顶、双击复制、过滤自身来源 |
+| v0.2.0 | 代码评审整改                                                                     |
+| v0.1.0 | 工程基线建立                                                                     |
 
-VS Code + Tauri 插件 + rust-analyzer。
+## License
 
-## 近期变更（2026-07）
-
-### 交互修复
-
-- **双击编辑时键盘事件冒泡**：`EditDialog` 中拦截键盘事件 `stopPropagation()`，防止 Backspace / Delete 等按键冒泡到列表导致误删除。
-- **右键菜单删除功能**：`ItemRow` 新增右键上下文菜单，支持直接删除列表项。
-- **右键删除 mousedown 竞态**：修复右键菜单"删除"点击不生效问题——背景是 mousedown 事件在菜单关闭前触发，导致点击目标丢失。改为在菜单关闭后再处理删除。
-
-### 功能优化
-
-- **收藏/自动剪切显示逻辑**：收藏视图现在显示每条记录所属分组名；自动剪切视图显示来源与时间信息。
-- **收藏改为复制模式**：新增后端 `favorite_item` 命令、重写 `toggleFav`，收藏与自动剪切数据完全隔离，不再共享同一条记录。
-- **分组持久化修复**：`saveItem` 由乐观 `setItems` 改为 `updateItem` + `refresh` 全量同步，消除 tab 切换后分组丢失的问题。
+MIT
