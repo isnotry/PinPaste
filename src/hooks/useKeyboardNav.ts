@@ -8,11 +8,11 @@ interface KeyboardNavParams {
   setSelectedId: (id: number | null) => void;
   onEnter: (it: ClipboardItem) => void;
   onEscape: () => void;
+  onBackspace: (it: ClipboardItem) => void;
 }
 
 /**
- * 列表键盘导航：方向键移动选中（基于业务 id，而非下标）、Enter 触发、Esc 关闭浮层。
- * 选中逻辑以 id 驱动，避免过滤/删除后下标漂移导致的错选（P1-4）。
+ * 列表键盘导航：方向键移动选中、Enter 粘贴、Backspace 删除、Esc 关闭浮层。
  */
 export function useKeyboardNav({
   filtered,
@@ -20,6 +20,7 @@ export function useKeyboardNav({
   setSelectedId,
   onEnter,
   onEscape,
+  onBackspace,
 }: KeyboardNavParams) {
   return useCallback(
     (e: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -37,11 +38,15 @@ export function useKeyboardNav({
         e.preventDefault();
         const it = filtered.find((i) => i.id === selectedId);
         if (it) onEnter(it);
+      } else if (e.key === "Backspace") {
+        e.preventDefault();
+        const it = filtered.find((i) => i.id === selectedId);
+        if (it) onBackspace(it);
       } else if (e.key === "Escape") {
         e.preventDefault();
         onEscape();
       }
     },
-    [filtered, selectedId, setSelectedId, onEnter, onEscape],
+    [filtered, selectedId, setSelectedId, onEnter, onEscape, onBackspace],
   );
 }

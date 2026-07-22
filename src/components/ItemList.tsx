@@ -6,14 +6,13 @@ interface ItemListProps {
   selectedId: number | null;
   registerRef: (id: number, el: HTMLDivElement | null) => void;
   onSelect: (id: number) => void;
-  onPaste: (it: ClipboardItem) => void;
-  onCopy: (it: ClipboardItem) => void;
-  onToggleFav: (it: ClipboardItem) => void;
   onEdit: (it: ClipboardItem) => void;
+  onCopy: (id: number) => void;
+  onToggleFav: (it: ClipboardItem) => void;
   onDelete: (id: number) => void;
   groupName: (id: number | null) => string | null;
-  groupColor: (id: number | null) => string | null;
   emptyText: string;
+  tab: "fav" | "all";
 }
 
 export function ItemList(props: ItemListProps) {
@@ -27,13 +26,12 @@ export function ItemList(props: ItemListProps) {
           selected={props.selectedId === it.id}
           registerRef={props.registerRef}
           onSelect={props.onSelect}
-          onPaste={props.onPaste}
+          onEdit={props.onEdit}
           onCopy={props.onCopy}
           onToggleFav={props.onToggleFav}
-          onEdit={props.onEdit}
           onDelete={props.onDelete}
           groupName={props.groupName}
-          groupColor={props.groupColor}
+          tab={props.tab}
         />
       ))}
     </div>

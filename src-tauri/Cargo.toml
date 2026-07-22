@@ -29,3 +29,9 @@ image = { version = "0.25", features = ["png"] }
 base64 = "0.22"
 enigo = "0.3"
 
+# macOS 专用：通过 NSWorkspace 获取前台 App 名称（复用 Tauri 已有的 objc2 版本）
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.5"
+objc2-app-kit = { version = "0.2", features = ["NSWorkspace", "NSRunningApplication"] }
+objc2-foundation = "0.2"
+
