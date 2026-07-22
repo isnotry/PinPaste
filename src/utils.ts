@@ -5,15 +5,14 @@ export function fmtTime(t: number): string {
   return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-/** 子序列模糊匹配：query 的字符是否按顺序作为子序列出现在 text 中（大小写不敏感） */
-export function fuzzyMatch(text: string, q: string): boolean {
+/**
+ * 搜索匹配：大小写不敏感的子串匹配，支持空格分词（每个词都需命中，AND 语义）。
+ * 空查询匹配任意文本。
+ * 相比子序列模糊匹配，避免长文本下“c…o…d…e”式的大量误命中。
+ */
+export function searchMatch(text: string, query: string): boolean {
+  const q = query.trim().toLowerCase();
   if (!q) return true;
-  const t = text.toLowerCase();
-  const query = q.toLowerCase();
-  let i = 0;
-  for (const ch of t) {
-    if (ch === query[i]) i++;
-    if (i === query.length) return true;
-  }
-  return false;
+  const haystack = text.toLowerCase();
+  return q.split(/\s+/).every((term) => haystack.includes(term));
 }

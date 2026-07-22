@@ -3,7 +3,12 @@ import { getImageData } from "../api";
 
 type ThumbState = "loading" | "ok" | "error";
 
-export function ImageThumb({ id }: { id: number }) {
+interface ImageThumbProps {
+  id: number;
+  onPreview?: (src: string) => void;
+}
+
+export function ImageThumb({ id, onPreview }: ImageThumbProps) {
   const [state, setState] = useState<ThumbState>("loading");
   const [src, setSrc] = useState<string | null>(null);
 
@@ -26,9 +31,20 @@ export function ImageThumb({ id }: { id: number }) {
     };
   }, [id]);
 
-  // 加载失败给出明确占位，避免与"加载中"混淆（P1-6）
   if (state === "error") {
     return <div className="thumb">🖼️</div>;
   }
-  return <div className="thumb">{src ? <img src={src} alt="" /> : "⏳"}</div>;
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (src && onPreview) {
+      e.stopPropagation();
+      onPreview(src);
+    }
+  };
+
+  return (
+    <div className={`thumb${src && onPreview ? " thumb-clickable" : ""}`} onClick={handleClick}>
+      {src ? <img src={src} alt="" /> : "⏳"}
+    </div>
+  );
 }

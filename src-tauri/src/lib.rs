@@ -13,6 +13,24 @@ use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State};
 use tauri_plugin_global_shortcut::ShortcutState;
 
+/// 获取当前前台（活跃）App 的名称，用于记录剪切板内容来源。
+/// macOS 通过 NSWorkspace.frontmostApplication 获取；其它平台暂不支持，返回 None。
+#[cfg(target_os = "macos")]
+fn active_app_name() -> Option<String> {
+    use objc2_app_kit::NSWorkspace;
+    unsafe {
+        let workspace = NSWorkspace::sharedWorkspace();
+        let app = workspace.frontmostApplication()?;
+        let name = app.localizedName()?;
+        Some(name.to_string())
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn active_app_name() -> Option<String> {
+    None
+}
+
 const MAX_HISTORY: usize = 1000;
 /// 自动清理默认天数;0 表示关闭
 const DEFAULT_AUTO_CLEAN_DAYS: i64 = 30;
@@ -130,8 +148,11 @@ fn trim_history(conn: &Connection) {
         .unwrap_or(0);
     if count as usize > MAX_HISTORY {
         let excess = count - MAX_HISTORY as i64;
+        // 只清理非收藏的最旧条目，收藏项不受 MAX_HISTORY 限制
         let paths: Vec<Option<String>> = conn
-            .prepare("SELECT image_path FROM items ORDER BY created_at ASC LIMIT ?1")
+            .prepare(
+                "SELECT image_path FROM items WHERE favorite = 0 ORDER BY created_at ASC LIMIT ?1",
+            )
             .unwrap()
             .query_map(params![excess], |r| r.get(0))
             .unwrap()
@@ -141,7 +162,7 @@ fn trim_history(conn: &Connection) {
             let _ = std::fs::remove_file(p);
         }
         conn.execute(
-            "DELETE FROM items WHERE id IN (SELECT id FROM items ORDER BY created_at ASC LIMIT ?1)",
+            "DELETE FROM items WHERE id IN (SELECT id FROM items WHERE favorite = 0 ORDER BY created_at ASC LIMIT ?1)",
             params![excess],
         )
         .ok();
@@ -215,12 +236,41 @@ fn init_store(app: &AppHandle) -> Db {
     }
 }
 
-fn insert_text(db: &Db, text: &str) -> ClipboardItem {
+fn insert_text(db: &Db, text: &str, app_source: Option<String>) -> ClipboardItem {
     let conn = db.conn.lock().unwrap();
     let created = now_ms();
+
+    // 去重：如果已有相同内容的条目（不管收藏状态），更新其来源和时间到最新，不新增
+    let existing: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM items WHERE content = ?1 ORDER BY created_at DESC LIMIT 1",
+            params![text],
+            |r| r.get(0),
+        )
+        .ok();
+
+    if let Some(id) = existing {
+        conn.execute(
+            "UPDATE items SET app_source = ?1, created_at = ?2 WHERE id = ?3",
+            params![app_source, created, id],
+        )
+        .unwrap();
+        return ClipboardItem {
+            id,
+            item_type: "text".into(),
+            content: Some(text.to_string()),
+            image_path: None,
+            app_source,
+            name: None,
+            favorite: 0,
+            group_id: None,
+            created_at: created,
+        };
+    }
+
     conn.execute(
-        "INSERT INTO items (item_type, content, app_source, created_at) VALUES ('text', ?1, NULL, ?2)",
-        params![text, created],
+        "INSERT INTO items (item_type, content, app_source, created_at) VALUES ('text', ?1, ?2, ?3)",
+        params![text, app_source, created],
     )
     .unwrap();
     let id = conn.last_insert_rowid();
@@ -230,7 +280,7 @@ fn insert_text(db: &Db, text: &str) -> ClipboardItem {
         item_type: "text".into(),
         content: Some(text.to_string()),
         image_path: None,
-        app_source: None,
+        app_source,
         name: None,
         favorite: 0,
         group_id: None,
@@ -238,15 +288,15 @@ fn insert_text(db: &Db, text: &str) -> ClipboardItem {
     }
 }
 
-fn insert_image(app: &AppHandle, db: &Db, img: &arboard::ImageData) -> ClipboardItem {
+fn insert_image(app: &AppHandle, db: &Db, img: &arboard::ImageData, app_source: Option<String>) -> ClipboardItem {
     let dir = app.path().app_data_dir().unwrap().join("images");
     let created = now_ms();
     let path = dir.join(format!("{}.png", created));
     save_image_png(img, &path);
     let conn = db.conn.lock().unwrap();
     conn.execute(
-        "INSERT INTO items (item_type, image_path, app_source, created_at) VALUES ('image', ?1, NULL, ?2)",
-        params![path.to_string_lossy().to_string(), created],
+        "INSERT INTO items (item_type, image_path, app_source, created_at) VALUES ('image', ?1, ?2, ?3)",
+        params![path.to_string_lossy().to_string(), app_source, created],
     )
     .unwrap();
     let id = conn.last_insert_rowid();
@@ -256,7 +306,7 @@ fn insert_image(app: &AppHandle, db: &Db, img: &arboard::ImageData) -> Clipboard
         item_type: "image".into(),
         content: None,
         image_path: Some(path.to_string_lossy().to_string()),
-        app_source: None,
+        app_source,
         name: None,
         favorite: 0,
         group_id: None,
@@ -285,7 +335,12 @@ fn start_monitor(app: AppHandle, db: Db, suppress: Suppress) {
                     .unwrap_or(false);
                 if !suppressed && Some(h) != last_image_hash {
                     last_image_hash = Some(h);
-                    let item = insert_image(&app, &db, &img);
+                    // 捕获当前前台 App 作为来源，过滤 PinPaste 自身
+                    let app_source = active_app_name();
+                    if app_source.as_deref() == Some("PinPaste") || app_source.as_deref() == Some("pinpaste") {
+                        continue;
+                    }
+                    let item = insert_image(&app, &db, &img, app_source);
                     let _ = app.emit("clipboard-new", &item);
                     stored = true;
                 } else {
@@ -304,7 +359,12 @@ fn start_monitor(app: AppHandle, db: Db, suppress: Suppress) {
                         .unwrap_or(false);
                     if !suppressed && !t.is_empty() && Some(&t) != last_text.as_ref() {
                         last_text = Some(t.clone());
-                        let item = insert_text(&db, &t);
+                        // 捕获当前前台 App 作为来源，过滤 PinPaste 自身
+                        let app_source = active_app_name();
+                        if app_source.as_deref() == Some("PinPaste") || app_source.as_deref() == Some("pinpaste") {
+                            continue;
+                        }
+                        let item = insert_text(&db, &t, app_source);
                         let _ = app.emit("clipboard-new", &item);
                     } else {
                         last_text = Some(t);
@@ -322,6 +382,7 @@ fn get_items(
     search: Option<String>,
     group_id: Option<i64>,
     favorite: Option<i64>,
+    app_source: Option<String>,
     db: State<Db>,
 ) -> Vec<ClipboardItem> {
     let conn = db.conn.lock().unwrap();
@@ -343,6 +404,12 @@ fn get_items(
             conds.push("(content LIKE ? OR name LIKE ?)".into());
             binds.push(Box::new(format!("%{}%", s)));
             binds.push(Box::new(format!("%{}%", s)));
+        }
+    }
+    if let Some(a) = app_source {
+        if !a.is_empty() {
+            conds.push("app_source = ?".into());
+            binds.push(Box::new(a));
         }
     }
     if !conds.is_empty() {
@@ -374,6 +441,26 @@ fn get_groups(db: State<Db>) -> Vec<Group> {
         out.push(row_to_group(row).unwrap());
     }
     out
+}
+
+#[tauri::command]
+fn get_app_sources(db: State<Db>) -> Vec<String> {
+    let conn = db.conn.lock().unwrap();
+    let mut stmt = conn
+        .prepare(
+            "SELECT DISTINCT app_source FROM items WHERE app_source IS NOT NULL AND app_source != '' ORDER BY app_source",
+        )
+        .unwrap();
+    let rows = stmt
+        .query_map([], |r| r.get::<_, String>(0))
+        .unwrap();
+    rows.filter_map(|r| r.ok()).collect()
+}
+
+/// 返回当前前台（活跃）App 名称，供前端做「当前使用 App」一键绑定。
+#[tauri::command]
+fn get_active_app() -> Option<String> {
+    active_app_name()
 }
 
 #[tauri::command]
@@ -496,8 +583,18 @@ fn delete_item(id: i64, db: State<Db>) -> Result<(), String> {
         .flatten();
     conn.execute("DELETE FROM items WHERE id = ?1", params![id])
         .map_err(|e| e.to_string())?;
-    if let Some(p) = path {
-        let _ = std::fs::remove_file(p);
+    // 只在没有其他记录引用同一图片文件时才删除物理文件
+    if let Some(p) = &path {
+        let refs: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM items WHERE image_path = ?1",
+                params![p],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        if refs == 0 {
+            let _ = std::fs::remove_file(p);
+        }
     }
     Ok(())
 }
@@ -506,6 +603,7 @@ fn delete_item(id: i64, db: State<Db>) -> Result<(), String> {
 fn update_item(
     id: i64,
     name: Option<String>,
+    content: Option<String>,
     favorite: Option<i64>,
     group_id: Option<i64>,
     db: State<Db>,
@@ -513,6 +611,10 @@ fn update_item(
     let conn = db.conn.lock().unwrap();
     if let Some(n) = name {
         conn.execute("UPDATE items SET name = ?1 WHERE id = ?2", params![n, id])
+            .map_err(|e| e.to_string())?;
+    }
+    if let Some(c) = content {
+        conn.execute("UPDATE items SET content = ?1 WHERE id = ?2", params![c, id])
             .map_err(|e| e.to_string())?;
     }
     if let Some(f) = favorite {
@@ -559,6 +661,31 @@ fn fetch_item_content(db: &Db, id: i64) -> Option<(String, Option<String>, Optio
         row.get::<_, Option<String>>(1).ok().flatten(),
         row.get::<_, Option<String>>(2).ok().flatten(),
     ))
+}
+
+/// 收藏：基于原条目复制一条新记录（favorite=1），原记录保持 favorite=0 不变。
+/// 这样自动剪切列表的来源信息不会被覆盖，收藏列表独立管理。
+#[tauri::command]
+fn favorite_item(id: i64, db: State<Db>) -> Result<ClipboardItem, String> {
+    let conn = db.conn.lock().unwrap();
+    conn.execute("UPDATE items SET favorite = 1 WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    let row = conn
+        .query_row(
+            "SELECT id, item_type, content, image_path, app_source, name, favorite, group_id, created_at FROM items WHERE id = ?1",
+            params![id],
+            |r| row_to_item(r),
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(row)
+}
+
+#[tauri::command]
+fn unfavorite_item(id: i64, db: State<Db>) -> Result<(), String> {
+    let conn = db.conn.lock().unwrap();
+    conn.execute("UPDATE items SET favorite = 0 WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -611,6 +738,24 @@ fn hide_main_window(app: AppHandle) -> Result<(), String> {
         w.hide().map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+/// 切换窗口置顶状态，返回切换后是否置顶
+#[tauri::command]
+fn toggle_pin(app: AppHandle) -> Result<bool, String> {
+    if let Some(w) = app.get_webview_window("main") {
+        let current = w.is_always_on_top().unwrap_or(false);
+        let next = !current;
+        w.set_always_on_top(next).map_err(|e| e.to_string())?;
+        if next {
+            // 置顶时同时抢焦点，确保立即浮到最前面
+            w.set_focus().map_err(|e| e.to_string())?;
+        let _ = w.set_title("PinPaste");
+        }
+        Ok(next)
+    } else {
+        Err("main window not found".into())
+    }
 }
 
 /// 显示并聚焦主窗口（统一封装，避免各处重复）
@@ -691,6 +836,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_items,
             get_groups,
+            get_app_sources,
+            get_active_app,
             create_group,
             update_group,
             delete_group,
@@ -699,9 +846,12 @@ pub fn run() {
             get_image_data,
             delete_item,
             update_item,
+            favorite_item,
+            unfavorite_item,
             copy_item,
             paste_item,
-            hide_main_window
+            hide_main_window,
+            toggle_pin,
         ]);
 
     let app = builder

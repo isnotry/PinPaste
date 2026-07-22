@@ -1,19 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import {
-  applyMode,
-  getStoredMode,
-  resolveMode,
-  watchSystemTheme,
-  type ResolvedTheme,
-} from "./theme";
+import { applyMode, getStoredMode, watchSystemTheme, type ResolvedTheme } from "./theme";
 import {
   getSettings,
   saveSettings,
-  copyItem,
   pasteItem,
   hideMainWindow,
+  getActiveApp,
   updateGroup,
+  togglePin,
+  copyItem,
   ApiError,
 } from "./api";
 import { useClipboardData } from "./hooks/useClipboardData";
@@ -21,7 +17,7 @@ import { useKeyboardNav } from "./hooks/useKeyboardNav";
 import { ItemList } from "./components/ItemList";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { EditDialog } from "./components/EditDialog";
-import { fuzzyMatch } from "./utils";
+import { searchMatch } from "./utils";
 import type { ClipboardItem, Group, Settings, ThemeMode } from "./types";
 import "./App.css";
 
@@ -32,33 +28,43 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>({ theme: "system", auto_clean_days: 30 });
   const [tab, setTab] = useState<"fav" | "all">("fav");
   const [groupFilter, setGroupFilter] = useState<number | null>(null);
+  const [appFilter, setAppFilter] = useState<string | null>(null);
+  const [currentApp, setCurrentApp] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editItem, setEditItem] = useState<ClipboardItem | null>(null);
-  const [editName, setEditName] = useState("");
+  const [editContent, setEditContent] = useState("");
   const [editGroup, setEditGroup] = useState<number | null>(null);
+  const [pinned, setPinned] = useState(true);
+  const pinnedRef = useRef(true);
+  const showGuardRef = useRef(0); // show 后短时间忽略 blur
+  const handleTogglePin = useCallback(async () => {
+    try {
+      const next = await togglePin();
+      pinnedRef.current = next;
+      setPinned(next);
+    } catch (e) {
+      console.error("切换置顶失败", e);
+    }
+  }, []);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const itemRefs = useRef(new Map<number, HTMLDivElement>());
 
-  const { items, groups, toggleFav, remove, saveItem, addGroup, removeGroup } = useClipboardData(
-    tab,
-    groupFilter,
-  );
+  const { items, groups, appSources, toggleFav, remove, saveItem, addGroup, removeGroup } =
+    useClipboardData(tab, groupFilter, appFilter);
 
   const registerRef = useCallback((id: number, el: HTMLDivElement | null) => {
     if (el) itemRefs.current.set(id, el);
     else itemRefs.current.delete(id);
   }, []);
 
-  // 应用主题
   useEffect(() => {
     applyMode(mode);
   }, [mode]);
 
-  // 跟随系统主题
   useEffect(() => {
     if (mode !== "system") return;
     return watchSystemTheme((t: ResolvedTheme) => {
@@ -66,7 +72,6 @@ export default function App() {
     });
   }, [mode]);
 
-  // 初始化：加载设置。失败仅记录日志，使用默认设置兜底（不静默吞错）
   useEffect(() => {
     if (!isTauriEnv) return;
     getSettings()
@@ -77,15 +82,20 @@ export default function App() {
       .catch((e) => console.error("加载设置失败", e));
   }, []);
 
-  // 浮层行为：呼出时聚焦搜索框；失焦时自动隐藏窗口
   useEffect(() => {
     if (!isTauriEnv) return;
     const offShow = listen("palette-show", () => {
+      showGuardRef.current = Date.now() + 300; // 300ms 内忽略 blur
       setSearch("");
       setSelectedId(null);
+      getActiveApp()
+        .then((a) => setCurrentApp(a))
+        .catch((e) => console.error("获取当前 App 失败", e));
       setTimeout(() => searchRef.current?.focus(), 30);
     });
     const offBlur = listen("tauri://blur", () => {
+      if (pinnedRef.current) return; // 置顶时失焦不隐藏
+      if (Date.now() < showGuardRef.current) return; // show 后 300ms 内忽略 blur
       void hideMainWindow().catch((e) => console.error("隐藏窗口失败", e));
     });
     let unShow: (() => void) | undefined;
@@ -117,19 +127,6 @@ export default function App() {
     [showToast],
   );
 
-  const onCopy = useCallback(
-    async (it: ClipboardItem) => {
-      try {
-        await copyItem(it.id);
-        showToast("已复制");
-      } catch (e) {
-        console.error(e);
-        showToast(e instanceof ApiError ? e.message : "复制失败");
-      }
-    },
-    [showToast],
-  );
-
   const onToggleFav = useCallback(
     (it: ClipboardItem) => {
       toggleFav(it).catch((e) => {
@@ -150,24 +147,33 @@ export default function App() {
     [remove, showToast],
   );
 
+  const handleCopy = useCallback(
+    (id: number) => {
+      void copyItem(id)
+        .then(() => showToast("已复制"))
+        .catch((e) => console.error("复制失败", e));
+    },
+    [showToast],
+  );
+
   const openEdit = useCallback((it: ClipboardItem) => {
     setEditItem(it);
-    setEditName(it.name || it.content || "");
+    setEditContent(it.content || "");
     setEditGroup(it.group_id);
   }, []);
 
   const saveEdit = useCallback(() => {
     if (!editItem) return;
     const id = editItem.id;
-    const name = editName.trim() || null;
     const groupId = editGroup;
-    saveItem(id, name, groupId)
+    const content = editItem.item_type === "image" ? null : editContent;
+    saveItem(id, null, groupId, content)
       .then(() => setEditItem(null))
       .catch((e) => {
         console.error(e);
         showToast("保存失败，请重试");
       });
-  }, [editItem, editName, editGroup, saveItem, showToast]);
+  }, [editItem, editContent, editGroup, saveItem, showToast]);
 
   const onAddGroup = useCallback(() => {
     addGroup().catch((e) => {
@@ -199,10 +205,9 @@ export default function App() {
   const filtered = useMemo(() => {
     const q = search.trim();
     if (!q) return items;
-    return items.filter((i) => fuzzyMatch(i.content || "", q) || fuzzyMatch(i.name || "", q));
+    return items.filter((i) => searchMatch(`${i.content ?? ""}\n${i.name ?? ""}`, q));
   }, [items, search]);
 
-  // 选中以业务 id 驱动：过滤后当前 id 失效则回退到第一条
   useEffect(() => {
     if (filtered.length === 0) {
       if (selectedId !== null) setSelectedId(null);
@@ -222,11 +227,6 @@ export default function App() {
     (id: number | null) => (id == null ? null : (groups.find((g) => g.id === id)?.name ?? null)),
     [groups],
   );
-  const groupColor = useCallback(
-    (id: number | null) => (id == null ? null : (groups.find((g) => g.id === id)?.color ?? null)),
-    [groups],
-  );
-
   const handleEscape = useCallback(() => {
     if (settingsOpen) setSettingsOpen(false);
     else if (editItem) setEditItem(null);
@@ -239,6 +239,7 @@ export default function App() {
     setSelectedId,
     onEnter: onPaste,
     onEscape: handleEscape,
+    onBackspace: (it) => onDelete(it.id),
   });
 
   const setThemeMode = useCallback(
@@ -264,10 +265,6 @@ export default function App() {
     [showToast],
   );
 
-  const openSearch = () => {
-    searchRef.current?.focus();
-  };
-
   return (
     <div className="app" onKeyDown={onKeyDown}>
       <header className="header">
@@ -278,16 +275,21 @@ export default function App() {
           placeholder={tab === "fav" ? "搜索收藏…" : "搜索剪贴板…"}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Backspace" && search === "") {
+              e.preventDefault();
+              e.stopPropagation();
+              const it = filtered.find((i) => i.id === selectedId);
+              if (it) onDelete(it.id);
+            }
+          }}
         />
-        <button className="icon-btn" title="搜索" onClick={openSearch}>
-          🔍
-        </button>
         <button
-          className="icon-btn"
-          title="切换亮色 / 暗色"
-          onClick={() => setMode((t) => (resolveMode(t) === "dark" ? "light" : "dark"))}
+          className={`icon-btn${pinned ? " active" : ""}`}
+          title={pinned ? "取消钉住" : "钉在最前"}
+          onClick={handleTogglePin}
         >
-          {resolveMode(mode) === "dark" ? "🌙" : "☀️"}
+          📌
         </button>
         <button className="icon-btn" title="设置" onClick={() => setSettingsOpen(true)}>
           ⚙️
@@ -295,50 +297,107 @@ export default function App() {
       </header>
 
       <div className="tabs">
-        <button className={`tab${tab === "fav" ? " active" : ""}`} onClick={() => setTab("fav")}>
+        <button
+          className={`tab${tab === "fav" ? " active" : ""}`}
+          onClick={() => {
+            setTab("fav");
+            setAppFilter(null);
+          }}
+        >
           ★ 收藏
         </button>
-        <button className={`tab${tab === "all" ? " active" : ""}`} onClick={() => setTab("all")}>
+        <button
+          className={`tab${tab === "all" ? " active" : ""}`}
+          onClick={() => {
+            setTab("all");
+            setGroupFilter(null);
+          }}
+        >
           自动剪切
         </button>
       </div>
 
-      {groups.length > 0 && (
-        <div className="chips">
-          <button
-            className={`chip${groupFilter == null ? " active" : ""}`}
-            onClick={() => setGroupFilter(null)}
-          >
-            全部
-          </button>
-          {groups.map((g) => (
-            <button
-              key={g.id}
-              className={`chip${groupFilter === g.id ? " active" : ""}`}
-              onClick={() => setGroupFilter(g.id)}
-              style={groupFilter === g.id ? { borderColor: g.color, color: g.color } : undefined}
-            >
-              <span className="dot" style={{ background: g.color }} />
-              {g.name}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="main-area">
+        <aside className="sidebar">
+          {tab === "fav" ? (
+            <>
+              <button
+                className={`sidebar-item${groupFilter == null ? " active" : ""}`}
+                onClick={() => setGroupFilter(null)}
+              >
+                全部
+              </button>
+              {groups.map((g) => (
+                <button
+                  key={g.id}
+                  className={`sidebar-item${groupFilter === g.id ? " active" : ""}`}
+                  onClick={() => setGroupFilter(g.id)}
+                  style={
+                    groupFilter === g.id
+                      ? { borderLeftColor: g.color, color: g.color }
+                      : { borderLeftColor: "transparent" }
+                  }
+                >
+                  <span className="dot" style={{ background: g.color }} />
+                  <span className="sidebar-label">{g.name}</span>
+                </button>
+              ))}
+            </>
+          ) : (
+            <>
+              <button
+                className={`sidebar-item${appFilter == null ? " active" : ""}`}
+                onClick={() => setAppFilter(null)}
+              >
+                📋 全部来源
+              </button>
+              {currentApp && (
+                <button
+                  className={`sidebar-item${appFilter === currentApp ? " active" : ""}`}
+                  onClick={() => setAppFilter(currentApp)}
+                  style={
+                    appFilter === currentApp
+                      ? { borderLeftColor: "var(--accent)" }
+                      : { borderLeftColor: "transparent" }
+                  }
+                >
+                  🔵 <span className="sidebar-label">当前：{currentApp}</span>
+                </button>
+              )}
+              {appSources
+                .filter((a) => a !== currentApp)
+                .map((a) => (
+                  <button
+                    key={a}
+                    className={`sidebar-item${appFilter === a ? " active" : ""}`}
+                    onClick={() => setAppFilter(a)}
+                    style={
+                      appFilter === a
+                        ? { borderLeftColor: "var(--accent)" }
+                        : { borderLeftColor: "transparent" }
+                    }
+                  >
+                    <span className="sidebar-label">{a}</span>
+                  </button>
+                ))}
+            </>
+          )}
+        </aside>
 
-      <ItemList
-        items={filtered}
-        selectedId={selectedId}
-        registerRef={registerRef}
-        onSelect={setSelectedId}
-        onPaste={onPaste}
-        onCopy={onCopy}
-        onToggleFav={onToggleFav}
-        onEdit={openEdit}
-        onDelete={onDelete}
-        groupName={groupName}
-        groupColor={groupColor}
-        emptyText={tab === "fav" ? "还没有收藏的内容" : "暂无剪贴板记录"}
-      />
+        <ItemList
+          items={filtered}
+          selectedId={selectedId}
+          registerRef={registerRef}
+          onSelect={setSelectedId}
+          onEdit={openEdit}
+          onCopy={handleCopy}
+          onToggleFav={onToggleFav}
+          onDelete={onDelete}
+          groupName={groupName}
+          emptyText={tab === "fav" ? "还没有收藏的内容" : "暂无剪贴板记录"}
+          tab={tab}
+        />
+      </div>
 
       {toast && <div className="toast">{toast}</div>}
 
@@ -357,13 +416,17 @@ export default function App() {
 
       <EditDialog
         item={editItem}
-        editName={editName}
+        editContent={editContent}
         editGroup={editGroup}
         groups={groups}
-        onNameChange={setEditName}
+        onContentChange={setEditContent}
         onGroupChange={setEditGroup}
         onSave={saveEdit}
         onClose={() => setEditItem(null)}
+        onDelete={(id) => {
+          onDelete(id);
+          setEditItem(null);
+        }}
       />
     </div>
   );

@@ -1,0 +1,27 @@
+# Cargo build optimization for macOS aarch64
+#
+# Three key optimizations:
+# 1. sccache — caches compiled Rust crates across builds (huge win on clean builds)
+# 2. Reduced debug info — "line-tables-only" is enough for backtraces
+# 3. Optimized dependencies — pay compile cost once for deps that rarely change
+
+[build]
+# Use sccache as the Rust compiler wrapper
+rustc-wrapper = "sccache"
+
+[profile.dev]
+# "line-tables-only" = enough debug info for backtraces, but much less
+# compile time than full debug info. Panics still show line numbers.
+debug = "line-tables-only"
+# Split debuginfo into a separate file (faster linking on macOS)
+split-debuginfo = "unpacked"
+
+# Optimize dependencies at opt-level 1 — they rarely change, so pay
+# the cost once and get faster incremental rebuilds of YOUR code.
+[profile.dev.package."*"]
+opt-level = 1
+
+[profile.release]
+# Keep LTO off for faster release builds (can turn on for final shipping)
+lto = false
+codegen-units = 16
