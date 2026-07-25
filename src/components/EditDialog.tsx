@@ -83,7 +83,7 @@ export function EditDialog(props: EditDialogProps) {
           </div>
         </div>
 
-        <div className="panel-tip">双击列表条目可打开编辑 · Enter 粘贴 · Backspace 删除</div>
+        <div className="panel-tip">右键条目可编辑 · Enter 粘贴 · Backspace 删除</div>
       </div>
     </div>
   );
