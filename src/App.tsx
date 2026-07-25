@@ -26,7 +26,11 @@ const isTauriEnv = typeof window !== "undefined" && "__TAURI_INTERNALS__" in win
 
 export default function App() {
   const [mode, setMode] = useState<ThemeMode>(getStoredMode);
-  const [settings, setSettings] = useState<Settings>({ theme: "system", auto_clean_days: 30 });
+  const [settings, setSettings] = useState<Settings>({
+    theme: "system",
+    auto_clean_days: 30,
+    pinned: false,
+  });
   const [tab, setTab] = useState<"fav" | "all">("fav");
   const [groupFilter, setGroupFilter] = useState<number | null>(null);
   const [appFilter, setAppFilter] = useState<string | null>(null);
@@ -39,8 +43,8 @@ export default function App() {
   const [editItem, setEditItem] = useState<ClipboardItem | null>(null);
   const [editContent, setEditContent] = useState("");
   const [editGroup, setEditGroup] = useState<number | null>(null);
-  const [pinned, setPinned] = useState(true);
-  const pinnedRef = useRef(true);
+  const [pinned, setPinned] = useState(false);
+  const pinnedRef = useRef(false);
   const showGuardRef = useRef(0); // show 后短时间忽略 blur
   const handleTogglePin = useCallback(async () => {
     try {
@@ -80,6 +84,11 @@ export default function App() {
       .then((s) => {
         setSettings(s);
         setMode(s.theme);
+        // 从后端恢复置顶状态
+        if (s.pinned) {
+          setPinned(true);
+          pinnedRef.current = true;
+        }
       })
       .catch((e) => console.error("加载设置失败", e));
   }, []);
