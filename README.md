@@ -11,8 +11,11 @@ Tauri 2 + React 19 + TypeScript + Vite，macOS 优先。
 - **搜索过滤**：输入关键词即时过滤，支持空格分词 AND 匹配，大小写不敏感
 - **收藏常用内容**：一键收藏，收藏列表独立分组管理
 - **编辑内容**：随时修改已记录的文本内容
-- **窗口置顶**：需要时一键置顶，始终浮在最前
+- **窗口置顶**：需要时一键置顶，始终浮在最前，状态持久化
 - **图片预览**：图片记录支持缩略图和大图预览
+- **双击复制**：双击列表条目直接复制内容到剪贴板
+- **卡片网格布局**：窗口拉宽时自动切换为多列卡片平铺
+- **中英文切换**：支持中文/英文界面语言，自动检测浏览器语言
 
 ## 操作指南
 
@@ -43,21 +46,35 @@ Tauri 2 + React 19 + TypeScript + Vite，macOS 优先。
 
 ### Tab 切换
 
-- **全部**：显示所有剪贴板记录，可按来源 App 筛选
+- **自动剪切**：显示所有剪贴板记录，可按来源 App 筛选
 - **收藏**：只显示已收藏的记录，可按分组筛选
 
 ### 来源筛选
 
-在「全部」Tab 下，点击底部来源 chips 可按 App 过滤：
+在「自动剪切」Tab 下，点击底部来源 chips 可按 App 过滤：
 
 - 显示所有曾记录过剪贴板内容的 App 名称
 - 点击某个 App 只显示该 App 复制的记录
 - 点击「全部」恢复显示所有来源
 
+### 卡片网格布局
+
+- 窗口宽度 ≥780px 时自动切换为多列卡片平铺
+- 3 列（780px+）/ 4 列（1100px+）/ 5 列（1420px+）
+- 卡片模式下内容显示最多 4 行，收藏按钮移到右上角（hover 显示）
+- 窗口缩窄时自动回到单列列表模式
+
 ### 窗口置顶
 
 - 点击侧边栏的置顶按钮，窗口将始终浮在其他窗口之上
 - 再次点击取消置顶
+- 置顶状态自动持久化，重启后恢复
+
+### 语言切换
+
+- 在设置面板中选择「中文」或「English」
+- 首次使用根据浏览器/系统语言自动检测
+- 语言偏好保存在本地
 
 ### 自动清理
 
@@ -112,7 +129,8 @@ npm run tauri dev    # 启动完整桌面应用（前端 + Rust 后端）
 | -------- | ----------------------------------------- |
 | 前端     | React 19 / TypeScript / Vite 7            |
 | 桌面壳   | Tauri 2（Rust）                           |
-| 样式     | 纯 CSS（无 UI 框架）                      |
+| 样式     | 纯 CSS（设计令牌系统，无 UI 框架）        |
+| 国际化   | 自建轻量 i18n（中/英双语，60+ 翻译条目）  |
 | 质量护栏 | ESLint 9 / Prettier 3 / Vitest 3          |
 | Git 钩子 | husky + lint-staged                       |
 | CI       | GitHub Actions（lint / typecheck / test） |
@@ -121,23 +139,36 @@ npm run tauri dev    # 启动完整桌面应用（前端 + Rust 后端）
 
 ```
 pinpaste/
-├── src/                    # 前端源码
-│   ├── components/         # React 组件
-│   │   ├── ItemList.tsx    # 列表容器
-│   │   ├── ItemRow.tsx     # 单条记录行
-│   │   ├── EditDialog.tsx  # 编辑弹窗
-│   │   ├── ImageThumb.tsx  # 图片缩略图
-│   │   └── ImagePreview.tsx# 图片大图预览
-│   ├── hooks/              # 自定义 Hook
-│   │   ├── useClipboardData.ts  # 剪贴板数据管理
-│   │   └── useKeyboardNav.ts    # 键盘导航
-│   ├── api.ts              # Tauri 后端调用封装
-│   ├── App.tsx             # 主应用
-│   └── App.css             # 全局样式
-├── src-tauri/              # Rust 后端
-│   ├── src/lib.rs          # 核心逻辑（监听、存储、窗口管理）
-│   ├── Cargo.toml          # Rust 依赖
-│   └── capabilities/       # Tauri 权限配置
+├── src/                        # 前端源码
+│   ├── components/             # React 组件
+│   │   ├── ItemList.tsx        # 列表容器（含卡片网格布局）
+│   │   ├── ItemRow.tsx         # 单条记录行
+│   │   ├── EditDialog.tsx      # 编辑弹窗
+│   │   ├── ImageThumb.tsx      # 图片缩略图
+│   │   ├── ImagePreview.tsx    # 图片大图预览
+│   │   └── SettingsPanel.tsx   # 设置面板（主题/清理/语言）
+│   ├── hooks/                  # 自定义 Hook
+│   │   ├── useClipboardData.ts # 剪贴板数据管理
+│   │   ├── useKeyboardNav.ts   # 键盘导航
+│   │   └── useLang.ts          # 语言管理
+│   ├── i18n.ts                 # 国际化字典与工具函数
+│   ├── api.ts                  # Tauri 后端调用封装
+│   ├── types.ts                # 共享类型定义
+│   ├── config.ts               # 配置常量（分组配色等）
+│   ├── utils.ts                # 工具函数（搜索匹配、时间格式化）
+│   ├── App.tsx                 # 主应用
+│   └── App.css                 # 全局样式（设计系统 v2）
+├── src-tauri/                  # Rust 后端
+│   ├── src/lib.rs              # 核心逻辑（监听、存储、窗口管理）
+│   ├── Cargo.toml              # Rust 依赖
+│   └── capabilities/           # Tauri 权限配置
+├── docs/                       # 文档
+│   ├── design.md               # 设计系统文档
+│   ├── CODE_REVIEW_CHECKLIST.md
+│   ├── CODE_REVIEW_NOTES.md
+│   └── README.md
+├── CONTRIBUTING.md
+├── overview.md
 └── package.json
 ```
 
@@ -145,14 +176,15 @@ pinpaste/
 
 - **提交前**：husky + lint-staged 自动对改动文件跑 ESLint + Prettier
 - **CI**：每次 push / PR 跑 `lint` / `format:check` / `typecheck` / `test`，任一不过则阻断合并
-- **测试**：Vitest + Testing Library，环境为 jsdom
+- **测试**：Vitest + Testing Library，环境为 jsdom，43/43 通过
 
 ## 版本历史
 
 | 版本   | 说明                                                                             |
 | ------ | -------------------------------------------------------------------------------- |
+| v0.4.0 | i18n 中英文、卡片网格布局、切换性能优化、ImageThumb 测试修复、App 图标功能移除   |
 | v0.3.0 | 功能完整版：App 来源绑定、搜索、编辑弹窗、收藏重写、置顶、双击复制、过滤自身来源 |
-| v0.2.0 | 代码评审整改                                                                     |
+| v0.2.0 | 代码评审整改（P0/P1/P2 逐项修复）                                                |
 | v0.1.0 | 工程基线建立                                                                     |
 
 ## License
