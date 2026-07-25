@@ -3,6 +3,7 @@ import type { ClipboardItem } from "../types";
 import { ImageThumb } from "./ImageThumb";
 import { ImagePreview } from "./ImagePreview";
 import { fmtTime } from "../utils";
+import { useAppIcon } from "../hooks/useAppIcon";
 
 interface ItemRowProps {
   item: ClipboardItem;
@@ -22,6 +23,7 @@ export function ItemRow(props: ItemRowProps) {
   const gn = props.groupName(it.group_id);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const appIcon = useAppIcon(it.app_source);
 
   const closeMenu = useCallback(() => setMenuPos(null), []);
 
@@ -88,6 +90,9 @@ export function ItemRow(props: ItemRowProps) {
               </span>
             ) : (
               <span className="meta-source" title={it.app_source || "未知来源"}>
+                {appIcon && (
+                  <img className="meta-app-icon" src={appIcon} alt="" width={12} height={12} />
+                )}
                 {it.app_source || "未知"}
               </span>
             )}

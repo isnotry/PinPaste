@@ -31,6 +31,43 @@ fn active_app_name() -> Option<String> {
     None
 }
 
+#[cfg(target_os = "macos")]
+fn app_icon_base64(app_name: &str) -> Option<String> {
+    use objc2_app_kit::NSWorkspace;
+    use objc2_foundation::NSString;
+
+    unsafe {
+        let workspace = NSWorkspace::sharedWorkspace();
+        let name = NSString::from_str(app_name);
+        let path = workspace.fullPathForApplication(&name)?;
+        let path_str = path.to_string();
+        let ns_path = NSString::from_str(&path_str);
+        let icon = workspace.iconForFile(&ns_path);
+
+        // 设定小尺寸（图标用）
+        icon.setSize(std::mem::transmute((32.0, 32.0)));
+
+        // TIFF → PNG via image crate
+        let tiff = icon.TIFFRepresentation()?;
+        let len = tiff.length();
+        let mut buf = vec![0u8; len];
+        let ptr = buf.as_mut_ptr() as *mut std::ffi::c_void;
+        tiff.getBytes_length(std::mem::transmute(ptr), len);
+        let img = image::load_from_memory_with_format(&buf, image::ImageFormat::Tiff).ok()?;
+        let mut png_buf = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut png_buf, image::ImageFormat::Png).ok()?;
+        Some(base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            png_buf.into_inner(),
+        ))
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn app_icon_base64(_app_name: &str) -> Option<String> {
+    None
+}
+
 const MAX_HISTORY: usize = 1000;
 /// 自动清理默认天数;0 表示关闭
 const DEFAULT_AUTO_CLEAN_DAYS: i64 = 30;
@@ -463,6 +500,12 @@ fn get_active_app() -> Option<String> {
     active_app_name()
 }
 
+/// 返回指定 App 的图标（PNG base64），前端用 data URI 显示。
+#[tauri::command]
+fn get_app_icon(app_name: String) -> Option<String> {
+    app_icon_base64(&app_name)
+}
+
 #[tauri::command]
 fn create_group(name: String, color: Option<String>, db: State<Db>) -> Group {
     let conn = db.conn.lock().unwrap();
@@ -838,6 +881,7 @@ pub fn run() {
             get_groups,
             get_app_sources,
             get_active_app,
+            get_app_icon,
             create_group,
             update_group,
             delete_group,

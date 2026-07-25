@@ -3,6 +3,9 @@ import { ItemRow } from "./ItemRow";
 import type { ClipboardItem } from "../types";
 
 vi.mock("../api", () => ({ getImageData: () => Promise.resolve("") }));
+vi.mock("../hooks/useAppIcon", () => ({
+  useAppIcon: () => null,
+}));
 
 const mkItem = (over: Partial<ClipboardItem> = {}): ClipboardItem => ({
   id: 1,
