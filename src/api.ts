@@ -87,6 +87,6 @@ export const hideMainWindow = () => call("hide_main_window", undefined, "隐藏�
 
 export const togglePin = () => call<boolean>("toggle_pin", undefined, "切换置顶失败");
 
-/** 获取指定 App 的图标（PNG base64），返回 data URI 或 null */
-export const getAppIcon = (appName: string) =>
-  call<string | null>("get_app_icon", { appName }, "获取 App 图标失败");
+/** 批量获取多个 App 的图标（PNG base64），返回 {appName: base64} map */
+export const getAppIcons = (appNames: string[]) =>
+  call<Record<string, string | null>>("get_app_icons", { appNames }, "获取 App 图标失败");

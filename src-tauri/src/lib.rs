@@ -506,6 +506,30 @@ fn get_app_icon(app_name: String) -> Option<String> {
     app_icon_base64(&app_name)
 }
 
+use std::collections::HashMap;
+use std::sync::Mutex as StdMutex;
+
+static ICON_CACHE: StdMutex<Option<HashMap<String, Option<String>>>> = StdMutex::new(None);
+
+/// 批量获取多个 App 的图标，返回 {app_name: base64_or_null} map。
+/// 内部带缓存，同一 app_name 只计算一次。
+#[tauri::command]
+fn get_app_icons(app_names: Vec<String>) -> HashMap<String, Option<String>> {
+    let mut cache_guard = ICON_CACHE.lock().unwrap();
+    let cache = cache_guard.get_or_insert_with(HashMap::new);
+    let mut result = HashMap::new();
+    for name in app_names {
+        if let Some(cached) = cache.get(&name) {
+            result.insert(name, cached.clone());
+        } else {
+            let icon = app_icon_base64(&name);
+            cache.insert(name.clone(), icon.clone());
+            result.insert(name, icon);
+        }
+    }
+    result
+}
+
 #[tauri::command]
 fn create_group(name: String, color: Option<String>, db: State<Db>) -> Group {
     let conn = db.conn.lock().unwrap();
@@ -882,6 +906,7 @@ pub fn run() {
             get_app_sources,
             get_active_app,
             get_app_icon,
+            get_app_icons,
             create_group,
             update_group,
             delete_group,
