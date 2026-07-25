@@ -80,6 +80,8 @@ export function ItemRow(props: ItemRowProps) {
             )}
           </div>
           <div className="item-meta">
+            <span className="meta-time">{fmtTime(it.created_at)}</span>
+            <span className="meta-sep">·</span>
             {props.tab === "fav" ? (
               <span className="meta-source" title={gn || "未分组"}>
                 {gn || "未分组"}
@@ -89,8 +91,6 @@ export function ItemRow(props: ItemRowProps) {
                 {it.app_source || "未知"}
               </span>
             )}
-            <span className="meta-sep">·</span>
-            <span className="meta-time">{fmtTime(it.created_at)}</span>
           </div>
         </div>
 
