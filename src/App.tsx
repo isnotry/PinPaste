@@ -349,7 +349,7 @@ export default function App() {
                 className={`sidebar-item${appFilter == null ? " active" : ""}`}
                 onClick={() => setAppFilter(null)}
               >
-                📋 全部来源
+                全部来源
               </button>
               {currentApp && (
                 <button
@@ -361,7 +361,7 @@ export default function App() {
                       : { borderLeftColor: "transparent" }
                   }
                 >
-                  🔵 <span className="sidebar-label">当前：{currentApp}</span>
+                  <span className="sidebar-label">当前 · {currentApp}</span>
                 </button>
               )}
               {appSources

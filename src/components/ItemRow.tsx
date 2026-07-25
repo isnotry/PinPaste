@@ -68,28 +68,30 @@ export function ItemRow(props: ItemRowProps) {
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
       >
-        <div className="item-side">
-          {props.tab === "fav" ? (
-            <div className="item-source" title={gn || "未分组"}>
-              {gn || "未分组"}
-            </div>
-          ) : (
-            <div className="item-source" title={it.app_source || "未知来源"}>
-              {it.app_source || "未知"}
-            </div>
-          )}
-          <div className="item-time">{fmtTime(it.created_at)}</div>
-        </div>
-
-        <div className="item-body">
-          {it.item_type === "image" ? (
-            <div className="item-content-row">
-              <ImageThumb id={it.id} onPreview={setPreviewSrc} />
-              <span className="item-text">{it.name || "[图片]"}</span>
-            </div>
-          ) : (
-            <div className="item-text">{it.name || it.content || "[内容]"}</div>
-          )}
+        <div className="item-main">
+          <div className="item-content-row">
+            {it.item_type === "image" ? (
+              <>
+                <ImageThumb id={it.id} onPreview={setPreviewSrc} />
+                <span className="item-text">{it.name || "[图片]"}</span>
+              </>
+            ) : (
+              <div className="item-text">{it.name || it.content || "[内容]"}</div>
+            )}
+          </div>
+          <div className="item-meta">
+            {props.tab === "fav" ? (
+              <span className="meta-source" title={gn || "未分组"}>
+                {gn || "未分组"}
+              </span>
+            ) : (
+              <span className="meta-source" title={it.app_source || "未知来源"}>
+                {it.app_source || "未知"}
+              </span>
+            )}
+            <span className="meta-sep">·</span>
+            <span className="meta-time">{fmtTime(it.created_at)}</span>
+          </div>
         </div>
 
         <button
