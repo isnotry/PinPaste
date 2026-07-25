@@ -5,6 +5,7 @@ import type { ClipboardItem, Group } from "../types";
 // ---- mock 数据访问层（真实实现会调用 Tauri 后端，测试环境必须替换） ----
 const mockGetItems = vi.fn();
 const mockGetGroups = vi.fn();
+const mockGetAppSources = vi.fn();
 const mockUpdateItem = vi.fn();
 const mockDeleteItem = vi.fn();
 const mockFavoriteItem = vi.fn();
@@ -21,6 +22,7 @@ const mockListen = vi.fn((_event: string, cb: (e: { payload: ClipboardItem }) =>
 vi.mock("../api", () => ({
   getItems: (...a: unknown[]) => mockGetItems(...a),
   getGroups: (...a: unknown[]) => mockGetGroups(...a),
+  getAppSources: (...a: unknown[]) => mockGetAppSources(...a),
   updateItem: (...a: unknown[]) => mockUpdateItem(...a),
   deleteItem: (...a: unknown[]) => mockDeleteItem(...a),
   favoriteItem: (...a: unknown[]) => mockFavoriteItem(...a),
@@ -58,6 +60,7 @@ beforeEach(() => {
   clipboardListener = null;
   mockGetItems.mockResolvedValue([mkItem(), mkItem({ id: 2, content: "world" })]);
   mockGetGroups.mockResolvedValue([mkGroup()]);
+  mockGetAppSources.mockResolvedValue(["Terminal", "Visual Studio Code"]);
   mockUpdateItem.mockResolvedValue(undefined);
   mockDeleteItem.mockResolvedValue(undefined);
   mockFavoriteItem.mockResolvedValue(mkItem({ id: 99, favorite: 1 }));
@@ -77,15 +80,6 @@ describe("useClipboardData", () => {
   });
 
   it("挂载时按 tab/group/app 条件拉取数据，appSources 不受 appFilter 影响", async () => {
-    mockGetItems
-      .mockResolvedValueOnce([
-        mkItem({ app_source: "Terminal" }),
-        mkItem({ id: 2, app_source: "Visual Studio Code" }),
-      ]) // 初始加载（带 appFilter）
-      .mockResolvedValueOnce([
-        mkItem({ app_source: "Terminal" }),
-        mkItem({ id: 2, app_source: "Visual Studio Code" }),
-      ]); // 拉全部来源（不带 appFilter）
     const { result } = renderHook(() => useClipboardData("fav", 3, "Terminal"));
     await waitFor(() => expect(result.current.items).toHaveLength(2));
 
@@ -95,7 +89,7 @@ describe("useClipboardData", () => {
       groupId: 3,
       appSource: "Terminal",
     });
-    // appSources 从全部条目提取，不受 appFilter 影响
+    // appSources 从 getAppSources() 获取，不受 appFilter 影响
     expect(result.current.appSources).toEqual(["Terminal", "Visual Studio Code"]);
   });
 
@@ -151,11 +145,10 @@ describe("useClipboardData", () => {
 
   it("saveItem：更新 name/group_id 后调用 refresh 同步状态", async () => {
     const updatedItem = mkItem({ id: 1, name: "重命名", group_id: 5 });
-    // saveItem 内部会调用 refresh → getItems 两次（一次带 filter，一次拉全部来源），mock 需返回更新后的数据
+    // saveItem 内部会调用 refresh → getItems + getGroups + getAppSources，mock 需返回更新后的数据
     mockGetItems
       .mockResolvedValueOnce([mkItem(), mkItem({ id: 2, content: "world" })]) // 初始加载
-      .mockResolvedValueOnce([updatedItem, mkItem({ id: 2, content: "world" })]) // refresh 带筛选
-      .mockResolvedValueOnce([updatedItem, mkItem({ id: 2, content: "world" })]); // refresh 拉全部来源
+      .mockResolvedValueOnce([updatedItem, mkItem({ id: 2, content: "world" })]); // refresh 带筛选
 
     const { result } = renderHook(() => useClipboardData("all", null));
     await waitFor(() => expect(result.current.items).toHaveLength(2));

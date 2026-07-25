@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { ImageThumb } from "./ImageThumb";
 
 const mockGetImageData = vi.fn();
@@ -18,7 +18,7 @@ describe("ImageThumb", () => {
   it("加载成功渲染 <img> 并带 data", async () => {
     mockGetImageData.mockResolvedValue("data:image/png;base64,AAAA");
     render(<ImageThumb id={1} />);
-    const img = await waitFor(() => screen.getByRole("img"));
+    const img = await screen.findByRole("img");
     expect(img).toHaveAttribute("src", "data:image/png;base64,AAAA");
   });
 

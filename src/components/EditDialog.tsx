@@ -1,10 +1,12 @@
 import type { ClipboardItem, Group } from "../types";
+import type { TFunc } from "../i18n";
 
 interface EditDialogProps {
   item: ClipboardItem | null;
   editContent: string;
   editGroup: number | null;
   groups: Group[];
+  t: TFunc;
   onContentChange: (v: string) => void;
   onGroupChange: (v: number | null) => void;
   onSave: () => void;
@@ -16,6 +18,7 @@ export function EditDialog(props: EditDialogProps) {
   if (!props.item) return null;
   const it = props.item;
   const isImage = it.item_type === "image";
+  const { t } = props;
 
   return (
     <div
@@ -28,17 +31,17 @@ export function EditDialog(props: EditDialogProps) {
     >
       <div className="panel edit-panel" onClick={(e) => e.stopPropagation()}>
         <div className="panel-head">
-          <span>编辑条目</span>
+          <span>{t("edit_title")}</span>
           <button className="icon-btn" onClick={props.onClose}>
             ✕
           </button>
         </div>
 
         <div className="field">
-          <label>内容</label>
+          <label>{t("edit_content")}</label>
           {isImage ? (
             <div className="edit-content-preview">
-              <span className="dim">[图片不可编辑]</span>
+              <span className="dim">[{t("item_image")}]</span>
             </div>
           ) : (
             <textarea
@@ -52,7 +55,7 @@ export function EditDialog(props: EditDialogProps) {
         </div>
 
         <div className="field">
-          <label>分组</label>
+          <label>{t("edit_group")}</label>
           <select
             className="text-input"
             value={props.editGroup ?? ""}
@@ -60,7 +63,7 @@ export function EditDialog(props: EditDialogProps) {
               props.onGroupChange(e.target.value === "" ? null : Number(e.target.value))
             }
           >
-            <option value="">无分组</option>
+            <option value="">{t("edit_no_group")}</option>
             {props.groups.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
@@ -71,19 +74,19 @@ export function EditDialog(props: EditDialogProps) {
 
         <div className="panel-actions">
           <button className="btn danger-btn" onClick={() => props.onDelete(it.id)}>
-            删除
+            {t("action_delete")}
           </button>
           <div className="panel-actions-right">
             <button className="btn" onClick={props.onClose}>
-              取消
+              {t("edit_cancel")}
             </button>
             <button className="btn primary" onClick={props.onSave}>
-              保存
+              {t("edit_save")}
             </button>
           </div>
         </div>
 
-        <div className="panel-tip">右键条目可编辑 · Enter 粘贴 · Backspace 删除</div>
+        <div className="panel-tip">{t("edit_hint")}</div>
       </div>
     </div>
   );
