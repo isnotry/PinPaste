@@ -86,3 +86,7 @@ export const pasteItem = (id: number) => call("paste_item", { id }, "粘贴失�
 export const hideMainWindow = () => call("hide_main_window", undefined, "隐藏窗口失败");
 
 export const togglePin = () => call<boolean>("toggle_pin", undefined, "切换置顶失败");
+
+/** 获取指定 App 的图标（PNG base64），返回 data URI 或 null */
+export const getAppIcon = (appName: string) =>
+  call<string | null>("get_app_icon", { appName }, "获取 App 图标失败");

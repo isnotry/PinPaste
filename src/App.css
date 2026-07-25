@@ -353,6 +353,17 @@ body {
   text-overflow: ellipsis;
   flex: 1 1 auto;
   min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidebar-app-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+  object-fit: contain;
 }
 
 .dot {
@@ -424,8 +435,8 @@ body {
   padding: var(--sp-2) var(--sp-3);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 0;
+  justify-content: center;
+  gap: 4px;
   overflow: hidden;
 }
 
@@ -463,6 +474,17 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 120px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.meta-app-icon {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+  object-fit: contain;
 }
 
 .meta-sep {

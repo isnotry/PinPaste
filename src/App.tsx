@@ -14,6 +14,7 @@ import {
 } from "./api";
 import { useClipboardData } from "./hooks/useClipboardData";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
+import { useAppIcon } from "./hooks/useAppIcon";
 import { ItemList } from "./components/ItemList";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { EditDialog } from "./components/EditDialog";
@@ -30,6 +31,7 @@ export default function App() {
   const [groupFilter, setGroupFilter] = useState<number | null>(null);
   const [appFilter, setAppFilter] = useState<string | null>(null);
   const [currentApp, setCurrentApp] = useState<string | null>(null);
+  const currentAppIcon = useAppIcon(currentApp);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -361,7 +363,18 @@ export default function App() {
                       : { borderLeftColor: "transparent" }
                   }
                 >
-                  <span className="sidebar-label">当前 · {currentApp}</span>
+                  <span className="sidebar-label">
+                    {currentAppIcon && (
+                      <img
+                        className="sidebar-app-icon"
+                        src={currentAppIcon}
+                        alt=""
+                        width={14}
+                        height={14}
+                      />
+                    )}
+                    当前 · {currentApp}
+                  </span>
                 </button>
               )}
               {appSources
