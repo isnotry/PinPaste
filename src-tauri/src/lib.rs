@@ -97,6 +97,7 @@ struct Group {
 struct AppSettings {
     theme: String,        // "system" | "light" | "dark"
     auto_clean_days: i64, // 0 = 关闭;1 / 7 / 30
+    pinned: bool,         // 窗口是否置顶
 }
 
 /// 用于抑制「程序写回剪贴板后被监听线程重复入库」
@@ -260,6 +261,7 @@ fn init_store(app: &AppHandle) -> Db {
         );
         INSERT OR IGNORE INTO settings (key, value) VALUES ('theme', 'system');
         INSERT OR IGNORE INTO settings (key, value) VALUES ('auto_clean_days', '30');
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('pinned', '0');
         CREATE INDEX IF NOT EXISTS idx_items_created ON items(created_at DESC);",
     )
     .expect("migrate");
@@ -588,9 +590,11 @@ fn get_settings(db: State<Db>) -> AppSettings {
     let days: i64 = read_setting(&conn, "auto_clean_days", "30")
         .parse()
         .unwrap_or(DEFAULT_AUTO_CLEAN_DAYS);
+    let pinned: bool = read_setting(&conn, "pinned", "0") == "1";
     AppSettings {
         theme,
         auto_clean_days: days,
+        pinned,
     }
 }
 
@@ -598,6 +602,7 @@ fn get_settings(db: State<Db>) -> AppSettings {
 fn save_settings(
     theme: Option<String>,
     auto_clean_days: Option<i64>,
+    pinned: Option<bool>,
     db: State<Db>,
 ) -> Result<(), String> {
     let conn = db.conn.lock().unwrap();
@@ -617,6 +622,14 @@ fn save_settings(
         .map_err(|e| e.to_string())?;
         // 设置变更后立即执行一次清理
         cleanup_old(&conn, d);
+    }
+    if let Some(p) = pinned {
+        let ps = if p { "1" } else { "0" };
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES ('pinned', ?1) ON CONFLICT(key) DO UPDATE SET value = ?1",
+            params![ps],
+        )
+        .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -809,7 +822,7 @@ fn hide_main_window(app: AppHandle) -> Result<(), String> {
 
 /// 切换窗口置顶状态，返回切换后是否置顶
 #[tauri::command]
-fn toggle_pin(app: AppHandle) -> Result<bool, String> {
+fn toggle_pin(app: AppHandle, db: State<Db>) -> Result<bool, String> {
     if let Some(w) = app.get_webview_window("main") {
         let current = w.is_always_on_top().unwrap_or(false);
         let next = !current;
@@ -819,6 +832,13 @@ fn toggle_pin(app: AppHandle) -> Result<bool, String> {
             w.set_focus().map_err(|e| e.to_string())?;
         let _ = w.set_title("PinPaste");
         }
+        // 持久化置顶状态
+        let conn = db.conn.lock().unwrap();
+        let ps = if next { "1" } else { "0" };
+        let _ = conn.execute(
+            "INSERT INTO settings (key, value) VALUES ('pinned', ?1) ON CONFLICT(key) DO UPDATE SET value = ?1",
+            params![ps],
+        );
         Ok(next)
     } else {
         Err("main window not found".into())
@@ -871,6 +891,17 @@ pub fn run() {
             let suppress = Suppress::default();
             app.manage(db.clone());
             app.manage(suppress.clone());
+            // 从 settings 读取置顶状态，初始化窗口
+            {
+                let conn = db.conn.lock().unwrap();
+                let pinned: bool = read_setting(&conn, "pinned", "0") == "1";
+                drop(conn);
+                if pinned {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.set_always_on_top(true);
+                    }
+                }
+            }
             // 系统托盘(菜单栏常驻)
             let show_i = MenuItem::with_id(app, "show", "Show PinPaste", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit PinPaste", true, None::<&str>)?;
