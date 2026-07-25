@@ -1,11 +1,11 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ItemRow } from "./ItemRow";
 import type { ClipboardItem } from "../types";
+import { createT } from "../i18n";
 
 vi.mock("../api", () => ({ getImageData: () => Promise.resolve("") }));
-vi.mock("../hooks/useAppIcon", () => ({
-  useAppIcon: () => null,
-}));
+
+const t = createT("zh");
 
 const mkItem = (over: Partial<ClipboardItem> = {}): ClipboardItem => ({
   id: 1,
@@ -31,6 +31,7 @@ const baseProps = (it: ClipboardItem) => ({
   onDelete: vi.fn(),
   groupName: (id: number | null) => (id === 2 ? "工作" : null),
   tab: "all" as const,
+  t,
 });
 
 describe("ItemRow", () => {

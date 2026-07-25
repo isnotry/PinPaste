@@ -21,8 +21,11 @@ export interface Group {
   sort: number;
 }
 
+export type Lang = "zh" | "en";
+
 export interface Settings {
   theme: ThemeMode;
   auto_clean_days: number; // 0 = 关闭；1 / 7 / 30
   pinned: boolean; // 窗口是否置顶
+  lang: Lang;
 }

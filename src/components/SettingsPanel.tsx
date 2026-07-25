@@ -1,13 +1,17 @@
-import type { Group, Settings, ThemeMode } from "../types";
+import type { Group, Settings, ThemeMode, Lang } from "../types";
+import { LANG_OPTIONS } from "../i18n";
+import type { TFunc } from "../i18n";
 
 interface SettingsPanelProps {
   open: boolean;
   mode: ThemeMode;
   settings: Settings;
   groups: Group[];
+  t: TFunc;
   onClose: () => void;
   onThemeMode: (m: ThemeMode) => void;
   onCleanDays: (d: number) => void;
+  onLangChange: (l: Lang) => void;
   onAddGroup: () => void;
   onUpdateGroup: (id: number, patch: Partial<Pick<Group, "name" | "color">>) => void;
   onDeleteGroup: (id: number) => void;
@@ -15,18 +19,19 @@ interface SettingsPanelProps {
 
 export function SettingsPanel(props: SettingsPanelProps) {
   if (!props.open) return null;
+  const { t } = props;
   return (
     <div className="overlay" onClick={props.onClose}>
       <div className="panel" onClick={(e) => e.stopPropagation()}>
         <div className="panel-head">
-          <span>设置</span>
+          <span>{t("settings_title")}</span>
           <button className="icon-btn" onClick={props.onClose}>
             ✕
           </button>
         </div>
 
         <div className="field">
-          <label>主题</label>
+          <label>{t("settings_theme")}</label>
           <div className="segmented">
             {(["system", "light", "dark"] as ThemeMode[]).map((m) => (
               <button
@@ -34,34 +39,53 @@ export function SettingsPanel(props: SettingsPanelProps) {
                 className={props.mode === m ? "active" : ""}
                 onClick={() => props.onThemeMode(m)}
               >
-                {m === "system" ? "跟随系统" : m === "light" ? "亮色" : "暗色"}
+                {m === "system"
+                  ? t("settings_theme_system")
+                  : m === "light"
+                    ? t("settings_theme_light")
+                    : t("settings_theme_dark")}
               </button>
             ))}
           </div>
         </div>
 
         <div className="field">
-          <label>自动清理剪贴板</label>
+          <label>{t("settings_clean")}</label>
           <div className="segmented">
             {[
-              { d: 0, t: "关闭" },
-              { d: 1, t: "1 天" },
-              { d: 7, t: "7 天" },
-              { d: 30, t: "30 天" },
+              { d: 0, label: t("settings_clean_off") },
+              { d: 1, label: `1 ${t("settings_clean_days")}` },
+              { d: 7, label: `7 ${t("settings_clean_days")}` },
+              { d: 30, label: `30 ${t("settings_clean_days")}` },
             ].map((o) => (
               <button
                 key={o.d}
                 className={props.settings.auto_clean_days === o.d ? "active" : ""}
                 onClick={() => props.onCleanDays(o.d)}
               >
-                {o.t}
+                {o.label}
               </button>
             ))}
           </div>
         </div>
 
         <div className="field">
-          <label>分组管理</label>
+          <label>{t("settings_language")}</label>
+          <div className="segmented">
+            {LANG_OPTIONS.map((o) => (
+              <button
+                key={o.value}
+                className={props.settings.lang === o.value ? "active" : ""}
+                onClick={() => props.onLangChange(o.value)}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="field">
+          <label>{t("edit_group")}</label>
           <div className="group-list">
             {props.groups.map((g) => (
               <div className="group-row" key={g.id}>
@@ -78,7 +102,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                 />
                 <button
                   className="icon-btn danger"
-                  title="删除分组"
+                  title={t("action_delete")}
                   onClick={() => props.onDeleteGroup(g.id)}
                 >
                   ✕
@@ -86,14 +110,12 @@ export function SettingsPanel(props: SettingsPanelProps) {
               </div>
             ))}
             <button className="add-group" onClick={props.onAddGroup}>
-              + 新建分组
+              + {t("edit_group")}
             </button>
           </div>
         </div>
 
-        <div className="panel-tip">
-          快捷键：Cmd+Shift+V 呼出 / 隐藏 · 点击托盘或 Dock 图标也可显示
-        </div>
+        <div className="panel-tip">⌘+⇧+V · {t("action_close")}</div>
       </div>
     </div>
   );

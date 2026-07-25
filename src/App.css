@@ -358,14 +358,6 @@ body {
   gap: 4px;
 }
 
-.sidebar-app-icon {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  flex: 0 0 auto;
-  object-fit: contain;
-}
-
 .dot {
   width: 8px;
   height: 8px;
@@ -382,6 +374,16 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
+  container-type: inline-size;
+}
+
+/* 窗口宽时切换为卡片网格布局 */
+@container (min-width: 640px) {
+  .list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+  }
 }
 
 .empty {
@@ -412,6 +414,29 @@ body {
     transform var(--dur-fast) var(--ease);
 }
 
+/* 卡片模式：等宽卡片，至少显示两行内容 */
+@container (min-width: 640px) {
+  .item {
+    width: calc(33.333% - var(--sp-2) * 2 / 3);
+    height: auto;
+    min-height: 100px;
+    flex-direction: column;
+    position: relative;
+  }
+}
+
+@container (min-width: 960px) {
+  .item {
+    width: calc(25% - var(--sp-2) * 3 / 4);
+  }
+}
+
+@container (min-width: 1280px) {
+  .item {
+    width: calc(20% - var(--sp-2) * 4 / 5);
+  }
+}
+
 .item:hover {
   background: var(--hover);
   border-color: var(--border-strong);
@@ -440,6 +465,15 @@ body {
   overflow: hidden;
 }
 
+/* 卡片模式：内容区域撑满 */
+@container (min-width: 640px) {
+  .item-main {
+    padding: var(--sp-3);
+    justify-content: space-between;
+    gap: var(--sp-2);
+  }
+}
+
 .item-content-row {
   display: flex;
   align-items: center;
@@ -455,6 +489,19 @@ body {
   line-height: 1.4;
   min-width: 0;
   color: var(--text);
+}
+
+/* 卡片模式：内容显示多行 */
+@container (min-width: 640px) {
+  .item-text {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 1.5;
+  }
 }
 
 /* Meta line: time · source */
@@ -477,14 +524,6 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-}
-
-.meta-app-icon {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-  flex: 0 0 auto;
-  object-fit: contain;
 }
 
 .meta-sep {
@@ -534,6 +573,14 @@ body {
   object-fit: cover;
 }
 
+/* 卡片模式：缩略图更大 */
+@container (min-width: 640px) {
+  .thumb {
+    width: 56px;
+    height: 56px;
+  }
+}
+
 /* 收藏按钮 */
 .fav-btn {
   flex: 0 0 auto;
@@ -561,6 +608,30 @@ body {
 
 .fav-btn.active {
   color: var(--warning);
+}
+
+/* 卡片模式：收藏按钮移到右上角 */
+@container (min-width: 640px) {
+  .fav-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border-left: none;
+    border-radius: var(--r-sm);
+    font-size: 12px;
+    z-index: 1;
+    opacity: 0;
+  }
+
+  .item:hover .fav-btn {
+    opacity: 1;
+  }
+
+  .fav-btn.active {
+    opacity: 1;
+  }
 }
 
 /* 缩略图可点击 */

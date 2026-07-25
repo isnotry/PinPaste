@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import {
   getItems,
   getGroups,
+  getAppSources,
   updateItem,
   deleteItem,
   favoriteItem,
@@ -31,20 +32,12 @@ export function useClipboardData(
     try {
       const opts: GetItemsOpts = { limit: 500 };
       if (tab === "fav") opts.favorite = 1;
-      else opts.favorite = 0; // 自动剪切 tab 只显示非收藏的原始记录
+      else opts.favorite = 0;
       if (groupFilter != null) opts.groupId = groupFilter;
       if (appFilter != null) opts.appSource = appFilter;
-      const [it, gr] = await Promise.all([getItems(opts), getGroups()]);
+      const [it, gr, sources] = await Promise.all([getItems(opts), getGroups(), getAppSources()]);
       setItems(it);
       setGroups(gr);
-      // 独立拉取全部来源列表（不带 appFilter），确保 sidebar 不会因筛选而收起
-      const allOpts: GetItemsOpts = { limit: 500 };
-      if (tab === "fav") allOpts.favorite = 1;
-      else allOpts.favorite = 0;
-      const allItems = await getItems(allOpts);
-      const sources = Array.from(
-        new Set(allItems.map((i) => i.app_source).filter((s): s is string => !!s)),
-      ).sort();
       setAllAppSources(sources);
     } catch (e) {
       console.error("加载剪贴板数据失败", e);

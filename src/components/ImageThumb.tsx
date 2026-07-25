@@ -44,7 +44,7 @@ export function ImageThumb({ id, onPreview }: ImageThumbProps) {
 
   return (
     <div className={`thumb${src && onPreview ? " thumb-clickable" : ""}`} onClick={handleClick}>
-      {src ? <img src={src} alt="" /> : "⏳"}
+      {src ? <img src={src} alt="clipboard image" /> : "⏳"}
     </div>
   );
 }

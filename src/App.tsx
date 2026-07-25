@@ -14,28 +14,29 @@ import {
 } from "./api";
 import { useClipboardData } from "./hooks/useClipboardData";
 import { useKeyboardNav } from "./hooks/useKeyboardNav";
-import { useAppIcon } from "./hooks/useAppIcon";
+import { useLang } from "./hooks/useLang";
 import { ItemList } from "./components/ItemList";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { EditDialog } from "./components/EditDialog";
 import { searchMatch } from "./utils";
-import type { ClipboardItem, Group, Settings, ThemeMode } from "./types";
+import type { ClipboardItem, Group, Settings, ThemeMode, Lang } from "./types";
 import "./App.css";
 
 const isTauriEnv = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export default function App() {
+  const { lang, t, changeLang } = useLang();
   const [mode, setMode] = useState<ThemeMode>(getStoredMode);
   const [settings, setSettings] = useState<Settings>({
     theme: "system",
     auto_clean_days: 30,
     pinned: false,
+    lang: "zh",
   });
   const [tab, setTab] = useState<"fav" | "all">("fav");
   const [groupFilter, setGroupFilter] = useState<number | null>(null);
   const [appFilter, setAppFilter] = useState<string | null>(null);
   const [currentApp, setCurrentApp] = useState<string | null>(null);
-  const currentAppIcon = useAppIcon(currentApp);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -45,6 +46,8 @@ export default function App() {
   const [editGroup, setEditGroup] = useState<number | null>(null);
   const [pinned, setPinned] = useState(false);
   const pinnedRef = useRef(false);
+  const langRef = useRef(lang);
+  langRef.current = lang;
   const showGuardRef = useRef(0); // show 后短时间忽略 blur
   const handleTogglePin = useCallback(async () => {
     try {
@@ -84,6 +87,7 @@ export default function App() {
       .then((s) => {
         setSettings(s);
         setMode(s.theme);
+        if (s.lang && s.lang !== langRef.current) changeLang(s.lang);
         // 从后端恢复置顶状态
         if (s.pinned) {
           setPinned(true);
@@ -91,7 +95,7 @@ export default function App() {
         }
       })
       .catch((e) => console.error("加载设置失败", e));
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isTauriEnv) return;
@@ -132,10 +136,10 @@ export default function App() {
         await pasteItem(it.id);
       } catch (e) {
         console.error(e);
-        showToast(e instanceof ApiError ? e.message : "粘贴失败：请授权辅助功能");
+        showToast(e instanceof ApiError ? e.message : t("action_paste") + "失败");
       }
     },
-    [showToast],
+    [showToast, t],
   );
 
   const onToggleFav = useCallback(
@@ -161,10 +165,10 @@ export default function App() {
   const handleCopy = useCallback(
     (id: number) => {
       void copyItem(id)
-        .then(() => showToast("已复制"))
+        .then(() => showToast(t("toast_copied")))
         .catch((e) => console.error("复制失败", e));
     },
-    [showToast],
+    [showToast, t],
   );
 
   const openEdit = useCallback((it: ClipboardItem) => {
@@ -276,6 +280,18 @@ export default function App() {
     [showToast],
   );
 
+  const handleLangChange = useCallback(
+    (l: Lang) => {
+      changeLang(l);
+      setSettings((s) => ({ ...s, lang: l }));
+      saveSettings({ lang: l }).catch((e) => {
+        console.error(e);
+        showToast(e instanceof ApiError ? e.message : "保存设置失败");
+      });
+    },
+    [changeLang, showToast],
+  );
+
   return (
     <div className="app" onKeyDown={onKeyDown}>
       <header className="header">
@@ -283,7 +299,7 @@ export default function App() {
         <input
           ref={searchRef}
           className="search"
-          placeholder={tab === "fav" ? "搜索收藏…" : "搜索剪贴板…"}
+          placeholder={tab === "fav" ? t("search_fav") : t("search_all")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => {
@@ -297,12 +313,16 @@ export default function App() {
         />
         <button
           className={`icon-btn${pinned ? " active" : ""}`}
-          title={pinned ? "取消钉住" : "钉在最前"}
+          title={pinned ? t("action_unpin") : t("action_pin")}
           onClick={handleTogglePin}
         >
           📌
         </button>
-        <button className="icon-btn" title="设置" onClick={() => setSettingsOpen(true)}>
+        <button
+          className="icon-btn"
+          title={t("action_settings")}
+          onClick={() => setSettingsOpen(true)}
+        >
           ⚙️
         </button>
       </header>
@@ -315,7 +335,7 @@ export default function App() {
             setAppFilter(null);
           }}
         >
-          ★ 收藏
+          ★ {t("tab_fav")}
         </button>
         <button
           className={`tab${tab === "all" ? " active" : ""}`}
@@ -324,7 +344,7 @@ export default function App() {
             setGroupFilter(null);
           }}
         >
-          自动剪切
+          {t("tab_all")}
         </button>
       </div>
 
@@ -336,7 +356,7 @@ export default function App() {
                 className={`sidebar-item${groupFilter == null ? " active" : ""}`}
                 onClick={() => setGroupFilter(null)}
               >
-                全部
+                {t("sidebar_all")}
               </button>
               {groups.map((g) => (
                 <button
@@ -360,7 +380,7 @@ export default function App() {
                 className={`sidebar-item${appFilter == null ? " active" : ""}`}
                 onClick={() => setAppFilter(null)}
               >
-                全部来源
+                {t("sidebar_all")}
               </button>
               {currentApp && (
                 <button
@@ -373,16 +393,7 @@ export default function App() {
                   }
                 >
                   <span className="sidebar-label">
-                    {currentAppIcon && (
-                      <img
-                        className="sidebar-app-icon"
-                        src={currentAppIcon}
-                        alt=""
-                        width={14}
-                        height={14}
-                      />
-                    )}
-                    当前 · {currentApp}
+                    {t("sidebar_current")} · {currentApp}
                   </span>
                 </button>
               )}
@@ -416,8 +427,9 @@ export default function App() {
           onToggleFav={onToggleFav}
           onDelete={onDelete}
           groupName={groupName}
-          emptyText={tab === "fav" ? "还没有收藏的内容" : "暂无剪贴板记录"}
+          emptyText={tab === "fav" ? t("empty_fav") : t("empty_all")}
           tab={tab}
+          t={t}
         />
       </div>
 
@@ -428,9 +440,11 @@ export default function App() {
         mode={mode}
         settings={settings}
         groups={groups}
+        t={t}
         onClose={() => setSettingsOpen(false)}
         onThemeMode={setThemeMode}
         onCleanDays={setCleanDays}
+        onLangChange={handleLangChange}
         onAddGroup={onAddGroup}
         onUpdateGroup={onUpdateGroup}
         onDeleteGroup={onDeleteGroup}
@@ -441,6 +455,7 @@ export default function App() {
         editContent={editContent}
         editGroup={editGroup}
         groups={groups}
+        t={t}
         onContentChange={setEditContent}
         onGroupChange={setEditGroup}
         onSave={saveEdit}

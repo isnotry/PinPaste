@@ -1,5 +1,6 @@
 import type { ClipboardItem } from "../types";
 import { ItemRow } from "./ItemRow";
+import type { TFunc } from "../i18n";
 
 interface ItemListProps {
   items: ClipboardItem[];
@@ -13,6 +14,7 @@ interface ItemListProps {
   groupName: (id: number | null) => string | null;
   emptyText: string;
   tab: "fav" | "all";
+  t: TFunc;
 }
 
 export function ItemList(props: ItemListProps) {
@@ -32,6 +34,7 @@ export function ItemList(props: ItemListProps) {
           onDelete={props.onDelete}
           groupName={props.groupName}
           tab={props.tab}
+          t={props.t}
         />
       ))}
     </div>

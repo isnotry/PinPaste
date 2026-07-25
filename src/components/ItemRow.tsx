@@ -3,7 +3,7 @@ import type { ClipboardItem } from "../types";
 import { ImageThumb } from "./ImageThumb";
 import { ImagePreview } from "./ImagePreview";
 import { fmtTime } from "../utils";
-import { useAppIcon } from "../hooks/useAppIcon";
+import type { TFunc } from "../i18n";
 
 interface ItemRowProps {
   item: ClipboardItem;
@@ -16,14 +16,14 @@ interface ItemRowProps {
   onDelete: (id: number) => void;
   groupName: (id: number | null) => string | null;
   tab: "fav" | "all";
+  t: TFunc;
 }
 
 export function ItemRow(props: ItemRowProps) {
-  const { item: it, selected } = props;
+  const { item: it, selected, t } = props;
   const gn = props.groupName(it.group_id);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
-  const appIcon = useAppIcon(it.app_source);
 
   const closeMenu = useCallback(() => setMenuPos(null), []);
 
@@ -75,25 +75,22 @@ export function ItemRow(props: ItemRowProps) {
             {it.item_type === "image" ? (
               <>
                 <ImageThumb id={it.id} onPreview={setPreviewSrc} />
-                <span className="item-text">{it.name || "[图片]"}</span>
+                <span className="item-text">{it.name || t("item_image")}</span>
               </>
             ) : (
-              <div className="item-text">{it.name || it.content || "[内容]"}</div>
+              <div className="item-text">{it.name || it.content || t("item_content")}</div>
             )}
           </div>
           <div className="item-meta">
             <span className="meta-time">{fmtTime(it.created_at)}</span>
             <span className="meta-sep">·</span>
             {props.tab === "fav" ? (
-              <span className="meta-source" title={gn || "未分组"}>
-                {gn || "未分组"}
+              <span className="meta-source" title={gn || t("item_ungrouped")}>
+                {gn || t("item_ungrouped")}
               </span>
             ) : (
-              <span className="meta-source" title={it.app_source || "未知来源"}>
-                {appIcon && (
-                  <img className="meta-app-icon" src={appIcon} alt="" width={12} height={12} />
-                )}
-                {it.app_source || "未知"}
+              <span className="meta-source" title={it.app_source || t("item_unknown_source")}>
+                {it.app_source || t("item_unknown_source")}
               </span>
             )}
           </div>
@@ -101,7 +98,7 @@ export function ItemRow(props: ItemRowProps) {
 
         <button
           className="fav-btn"
-          title={it.favorite ? "取消收藏" : "收藏"}
+          title={it.favorite ? t("action_unfav") : t("action_fav")}
           onClick={(e) => {
             e.stopPropagation();
             props.onToggleFav(it);
@@ -116,7 +113,7 @@ export function ItemRow(props: ItemRowProps) {
       {menuPos && (
         <div className="ctx-menu" data-ctx-menu style={{ left: menuPos.x, top: menuPos.y }}>
           <button className="ctx-menu-item" onClick={handleEdit}>
-            编辑
+            {t("action_edit")}
           </button>
         </div>
       )}
