@@ -374,11 +374,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  container-type: inline-size;
 }
 
 /* 窗口宽时切换为卡片网格布局 */
-@container (min-width: 640px) {
+@media (min-width: 780px) {
   .list {
     flex-direction: row;
     flex-wrap: wrap;
@@ -415,7 +414,7 @@ body {
 }
 
 /* 卡片模式：等宽卡片，至少显示两行内容 */
-@container (min-width: 640px) {
+@media (min-width: 780px) {
   .item {
     width: calc(33.333% - var(--sp-2) * 2 / 3);
     height: auto;
@@ -425,13 +424,13 @@ body {
   }
 }
 
-@container (min-width: 960px) {
+@media (min-width: 1100px) {
   .item {
     width: calc(25% - var(--sp-2) * 3 / 4);
   }
 }
 
-@container (min-width: 1280px) {
+@media (min-width: 1420px) {
   .item {
     width: calc(20% - var(--sp-2) * 4 / 5);
   }
@@ -466,7 +465,7 @@ body {
 }
 
 /* 卡片模式：内容区域撑满 */
-@container (min-width: 640px) {
+@media (min-width: 780px) {
   .item-main {
     padding: var(--sp-3);
     justify-content: space-between;
@@ -492,7 +491,7 @@ body {
 }
 
 /* 卡片模式：内容显示多行 */
-@container (min-width: 640px) {
+@media (min-width: 780px) {
   .item-text {
     white-space: normal;
     display: -webkit-box;
@@ -574,7 +573,7 @@ body {
 }
 
 /* 卡片模式：缩略图更大 */
-@container (min-width: 640px) {
+@media (min-width: 780px) {
   .thumb {
     width: 56px;
     height: 56px;
@@ -611,7 +610,7 @@ body {
 }
 
 /* 卡片模式：收藏按钮移到右上角 */
-@container (min-width: 640px) {
+@media (min-width: 780px) {
   .fav-btn {
     position: absolute;
     top: 4px;
