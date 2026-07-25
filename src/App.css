@@ -410,9 +410,7 @@ body {
 .item.selected {
   background: var(--selected);
   border-color: var(--accent);
-  box-shadow:
-    0 0 0 1px var(--accent) inset,
-    var(--shadow-xs);
+  box-shadow: var(--shadow-xs);
 }
 
 .item:active {
