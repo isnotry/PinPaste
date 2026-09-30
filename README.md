@@ -1,192 +1,196 @@
-# PinPaste
+# PinPaste · 剪贴板管理器
 
-轻量剪贴板管理器，自动记录你复制过的所有内容，随用随查。
+**简体中文** | [English](README.en.md)
 
-Tauri 2 + React 19 + TypeScript + Vite，macOS 优先。
+![平台 macOS](https://img.shields.io/badge/platform-macOS-lightgrey)
+![Tauri 2](https://img.shields.io/badge/Tauri-2-blue)
+![数据只存本机](https://img.shields.io/badge/data-local--only-orange)
+![无服务端](https://img.shields.io/badge/backend-none-brightgreen)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
-## 功能一览
+> 复制过的东西一条不漏地留在本机 SQLite 里，⌘ + ⇧ + V 一按呼出，Enter 直接贴回光标处。
 
-- **自动监听剪贴板**：文本和图片都会自动记录，最多保留 1000 条
-- **按 App 来源分类**：每条记录自动标记来源应用（如 Safari、微信、VS Code），可按来源筛选
-- **搜索过滤**：输入关键词即时过滤，支持空格分词 AND 匹配，大小写不敏感
-- **收藏常用内容**：一键收藏，收藏列表独立分组管理
-- **编辑内容**：随时修改已记录的文本内容
-- **窗口置顶**：需要时一键置顶，始终浮在最前，状态持久化
-- **图片预览**：图片记录支持缩略图和大图预览
-- **双击复制**：双击列表条目直接复制内容到剪贴板
-- **卡片网格布局**：窗口拉宽时自动切换为多列卡片平铺
-- **中英文切换**：支持中文/英文界面语言，自动检测浏览器语言
+![界面截图](https://cdn.jsdelivr.net/gh/isnotry/PinPaste@main/docs/screenshot.png)
 
-## 操作指南
+**[下载与版本](https://github.com/isnotry/PinPaste/releases)**
 
-### 基本操作
+---
 
-| 操作                   | 效果                                       |
-| ---------------------- | ------------------------------------------ |
-| **双击条目**           | 复制该条目内容到剪贴板，弹出「已复制」提示 |
-| **右键条目**           | 打开菜单，选择「编辑」进入编辑弹窗         |
-| **单击条目**           | 选中条目（高亮显示）                       |
-| **Backspace / Delete** | 删除选中的条目                             |
+## 它是什么
 
-### 编辑弹窗
+PinPaste 是一款 macOS 桌面剪贴板历史工具：后台常驻并记录你复制过的文本与图片，随时呼出、搜索、收藏、粘贴回去。
 
-右键条目 → 选择「编辑」，打开编辑窗口：
+形态是 Tauri 2 壳（Rust 后端 + React 19 前端），没有服务端、没有账号、不联网 —— 全部数据落在本机的一个 SQLite 文件里，窗口默认 440 × 620，用完即隐。
 
-- **文本内容**：可直接在文本框中编辑，点击「保存」更新记录
-- **图片内容**：只读预览，不可编辑
-- **收藏切换**：点击星标按钮切换收藏状态
-- **删除**：点击底部「删除」按钮删除该条目
-- **关闭**：点击遮罩层或按 Esc 关闭弹窗
+## 特性
 
-### 搜索
+- **自动记录** —— 后台线程每 700 ms 轮询一次剪贴板，文本与图片都存，同内容不重复入库
+- **粘贴回光标处** —— 选中条目按 Enter，写回剪贴板后模拟一次 ⌘ + V，直接落在当前输入框
+- **来源标记** —— 每条记录自动带上复制时的前台 App（如 Safari、VS Code），可按来源筛选
+- **收藏与分组** —— 星标收藏永不自动清理，收藏项可归入带颜色的分组
+- **即时搜索** —— 空格分词 AND 匹配、大小写不敏感，同时匹配内容与名称
+- **图片历史** —— 图片以 PNG 存盘，列表显示缩略图，点击看大图
+- **窗口置顶** —— 📌 一键钉在最前，状态持久化，重启后恢复
+- **自动清理** —— 按 1 / 7 / 30 天清理未收藏的旧条目，可关闭；总量超过 1000 条时从最旧的未收藏项开始丢
+- **轻量常驻** —— 菜单栏托盘常驻，全局快捷键呼出 / 隐藏，失焦自动隐藏
+- **中英双语界面** —— 内置 43 条翻译，跟随系统语言自动选择
 
-- 顶部搜索框输入关键词，列表实时过滤
-- 多个关键词用空格分隔，匹配需同时包含所有关键词（AND 逻辑）
-- 大小写不敏感
+## 快速开始
 
-### Tab 切换
-
-- **自动剪切**：显示所有剪贴板记录，可按来源 App 筛选
-- **收藏**：只显示已收藏的记录，可按分组筛选
-
-### 来源筛选
-
-在「自动剪切」Tab 下，点击底部来源 chips 可按 App 过滤：
-
-- 显示所有曾记录过剪贴板内容的 App 名称
-- 点击某个 App 只显示该 App 复制的记录
-- 点击「全部」恢复显示所有来源
-
-### 卡片网格布局
-
-- 窗口宽度 ≥780px 时自动切换为多列卡片平铺
-- 3 列（780px+）/ 4 列（1100px+）/ 5 列（1420px+）
-- 卡片模式下内容显示最多 4 行，收藏按钮移到右上角（hover 显示）
-- 窗口缩窄时自动回到单列列表模式
-
-### 窗口置顶
-
-- 点击侧边栏的置顶按钮，窗口将始终浮在其他窗口之上
-- 再次点击取消置顶
-- 置顶状态自动持久化，重启后恢复
-
-### 语言切换
-
-- 在设置面板中选择「中文」或「English」
-- 首次使用根据浏览器/系统语言自动检测
-- 语言偏好保存在本地
-
-### 自动清理
-
-- 默认保留 30 天内的记录，超期自动清理（收藏的记录不会被清理）
-- 可在设置中调整保留天数，设为 0 则关闭自动清理
-
-## 快捷键
-
-| 快捷键                 | 效果                           |
-| ---------------------- | ------------------------------ |
-| `↑` / `↓`              | 上下移动选中条目               |
-| `Enter`                | 粘贴选中条目内容到当前输入位置 |
-| `Backspace` / `Delete` | 删除选中条目                   |
-| `Esc`                  | 清空搜索框 / 关闭弹窗          |
-| `Cmd + F`              | 聚焦搜索框                     |
-
-> 粘贴功能需要授予辅助功能权限（macOS 首次使用会提示授权）
-
-## 本地开发
-
-### 环境要求
-
-- Node.js 22+
-- Rust（stable 工具链）
-- macOS：Xcode Command Line Tools
-
-### 启动
+### 运行桌面应用
 
 ```bash
 npm install          # 安装前端依赖
 npm run tauri dev    # 启动完整桌面应用（前端 + Rust 后端）
 ```
 
-### 脚本
+环境要求：Node.js 22+、Rust stable 工具链、macOS 需装 Xcode Command Line Tools。首次使用「粘贴」功能时，macOS 会弹窗请求辅助功能权限 —— 允许后才能在别的应用里模拟 ⌘ + V。
 
-| 命令                   | 作用                         |
-| ---------------------- | ---------------------------- |
-| `npm run dev`          | 仅启动前端开发服务器         |
-| `npm run build`        | 生产构建（tsc + vite build） |
-| `npm run tauri dev`    | 启动桌面应用（开发模式）     |
-| `npm run tauri build`  | 打包桌面应用（发布模式）     |
-| `npm run lint`         | ESLint 静态检查              |
-| `npm run format`       | Prettier 格式化全部文件      |
-| `npm run format:check` | 仅检查格式（CI 用）          |
-| `npm run typecheck`    | TypeScript 类型检查          |
-| `npm run test`         | Vitest 单元测试              |
-| `npm run test:watch`   | Vitest 监听模式              |
+### 打包安装包
 
-## 技术栈
-
-| 层       | 技术                                      |
-| -------- | ----------------------------------------- |
-| 前端     | React 19 / TypeScript / Vite 7            |
-| 桌面壳   | Tauri 2（Rust）                           |
-| 样式     | 纯 CSS（设计令牌系统，无 UI 框架）        |
-| 国际化   | 自建轻量 i18n（中/英双语，60+ 翻译条目）  |
-| 质量护栏 | ESLint 9 / Prettier 3 / Vitest 3          |
-| Git 钩子 | husky + lint-staged                       |
-| CI       | GitHub Actions（lint / typecheck / test） |
-
-## 项目结构
-
+```bash
+npm run tauri build
 ```
+
+产物在 `src-tauri/target/release/bundle/`。仓库当前只发源码与版本标签，未做签名分发，安装包请自行打包。
+
+### 浏览器里看界面
+
+```bash
+npm run dev          # 打开 http://localhost:1420
+```
+
+非 Tauri 环境下不调后端，界面加载 `src/demo.ts` 里的演示数据 —— 用来预览 UI 和拍截图，方便不装 Rust 就上手改样式。
+
+## 界面说明
+
+| 位置         | 元素                   | 作用                                           |
+| ------------ | ---------------------- | ---------------------------------------------- |
+| 顶栏         | 搜索框                 | 输入关键词实时过滤当前 Tab                     |
+| 顶栏         | 📌                     | 切换窗口置顶，状态写入 `settings.pinned`       |
+| 顶栏         | ⚙️                     | 打开设置面板                                   |
+| Tab          | ★ 收藏 / 自动剪切      | 收藏项列表 / 全部剪贴板历史                    |
+| 侧边栏       | 全部                   | 取消筛选，显示全部条目                         |
+| 侧边栏       | 分组名（收藏 Tab）     | 按分组筛选，左侧色条为分组颜色                 |
+| 侧边栏       | 当前 · App（剪切 Tab） | 只看当前前台 App 复制的内容                    |
+| 侧边栏       | 各来源 App             | 按来源筛选，列表来自 `get_app_sources`         |
+| 列表条目     | 内容 / 名称            | 图片条目显示缩略图 + 文件名                    |
+| 列表条目     | 时间 · 来源            | `MM-DD HH:mm`，收藏 Tab 下显示分组名           |
+| 条目右侧     | ☆ / ★                  | 切换收藏，收藏项不受自动清理与 1000 条上限影响 |
+| 设置面板     | 主题                   | 跟随系统 / 浅色 / 深色                         |
+| 设置面板     | 自动清理               | 关闭 / 1 / 7 / 30 天                           |
+| 设置面板     | 语言                   | 中文 / English                                 |
+| 设置面板     | 分组管理               | 改分组名、取色、删除、新增                     |
+| 设置面板底部 | GitHub 开源仓库        | 跳转到源码仓库                                 |
+
+## 快捷键
+
+| 按键                | 效果                                |
+| ------------------- | ----------------------------------- |
+| `⌘ + ⇧ + V`（全局） | 呼出 / 隐藏 PinPaste 窗口           |
+| `↑` / `↓`           | 在过滤后的列表里上下移动选中项      |
+| `Enter`             | 把选中条目粘贴到当前输入位置        |
+| `Backspace`         | 删除选中条目（搜索框为空时生效）    |
+| `Esc`               | 关闭设置 / 编辑弹窗，否则隐藏窗口   |
+| 双击条目            | 复制该条目内容到剪贴板              |
+| 右键条目            | 打开菜单 → 编辑（内容、分组、删除） |
+
+窗口未置顶时失焦即自动隐藏，所以「复制别处 → 呼出 → Enter」这条链路不用手动关窗口。
+
+## 工作方式
+
+监听循环（Rust 后台线程，700 ms 一轮）：
+
+```text
+图片：board.get_image() 成功 且 hash 与上次不同  → 存图片
+文本：非空 且 trim 后与上次不同                  → 存文本
+来源：取当前前台 App 名，等于 PinPaste 时跳过（不记录自己写回的内容）
+```
+
+自动清理与容量上限：
+
+```text
+过期清理：created_at < now - days × 24h 且 favorite = 0  → 删除（图片文件一并删除）
+          天数默认 30，可选 1 / 7 / 30，设 0 为关闭；每次启动时执行一次
+容量上限：COUNT(items) > 1000 → 按 created_at 升序删除最旧的未收藏项
+```
+
+收藏项（`favorite = 1`）在两条规则里都豁免 —— 只要加过星，就不会被自动删掉。
+
+## 数据与隐私
+
+不联网、无账号、无埋点：数据只写进本机 `app_data_dir`，卸载即随目录删除。
+
+| 位置                               | 内容                                              |
+| ---------------------------------- | ------------------------------------------------- |
+| `app_data_dir/pinpaste.db`         | SQLite 库：`items` / `groups` / `settings` 三张表 |
+| `app_data_dir/images/`             | 复制过的图片，按 PNG 存盘                         |
+| `settings.auto_clean_days`         | 自动清理天数（默认 30）                           |
+| `settings.pinned`                  | 窗口置顶状态                                      |
+| `settings.lang`                    | 界面语言                                          |
+| localStorage `pinpaste-lang`       | 前端语言偏好（启动时先读它，其次浏览器语言）      |
+| localStorage `pinpaste-theme-mode` | 主题模式：`system` / `light` / `dark`             |
+
+唯一需要授权的是**辅助功能**：粘贴要用 `enigo` 模拟一次 ⌘ + V。读取剪贴板本身不需要任何权限。
+
+## 目录结构
+
+```text
 pinpaste/
-├── src/                        # 前端源码
-│   ├── components/             # React 组件
-│   │   ├── ItemList.tsx        # 列表容器（含卡片网格布局）
-│   │   ├── ItemRow.tsx         # 单条记录行
-│   │   ├── EditDialog.tsx      # 编辑弹窗
-│   │   ├── ImageThumb.tsx      # 图片缩略图
-│   │   ├── ImagePreview.tsx    # 图片大图预览
-│   │   └── SettingsPanel.tsx   # 设置面板（主题/清理/语言）
-│   ├── hooks/                  # 自定义 Hook
-│   │   ├── useClipboardData.ts # 剪贴板数据管理
-│   │   ├── useKeyboardNav.ts   # 键盘导航
-│   │   └── useLang.ts          # 语言管理
-│   ├── i18n.ts                 # 国际化字典与工具函数
-│   ├── api.ts                  # Tauri 后端调用封装
-│   ├── types.ts                # 共享类型定义
-│   ├── config.ts               # 配置常量（分组配色等）
-│   ├── utils.ts                # 工具函数（搜索匹配、时间格式化）
+├── src/                        # React 19 + TypeScript 前端
+│   ├── components/             # ItemList / ItemRow / EditDialog / ImageThumb / ImagePreview / SettingsPanel
+│   ├── hooks/                  # useClipboardData（数据层）/ useKeyboardNav（键盘）/ useLang（语言）
+│   ├── i18n.ts                 # 中英字典与取词函数（43 条）
+│   ├── api.ts                  # Tauri 命令封装，统一错误为 ApiError
+│   ├── demo.ts                 # 浏览器预览用的演示数据（非 Tauri 环境生效）
+│   ├── types.ts                # 前端共享类型
+│   ├── theme.ts                # 主题解析、持久化与系统主题监听
+│   ├── utils.ts                # 搜索匹配与时间格式化
 │   ├── App.tsx                 # 主应用
-│   └── App.css                 # 全局样式（设计系统 v2）
-├── src-tauri/                  # Rust 后端
-│   ├── src/lib.rs              # 核心逻辑（监听、存储、窗口管理）
-│   ├── Cargo.toml              # Rust 依赖
-│   └── capabilities/           # Tauri 权限配置
-├── docs/                       # 文档
-│   ├── design.md               # 设计系统文档
-│   ├── CODE_REVIEW_CHECKLIST.md
-│   ├── CODE_REVIEW_NOTES.md
-│   └── README.md
+│   └── App.css                 # 全局样式（设计令牌系统）
+├── src-tauri/
+│   ├── src/lib.rs              # 全部 Tauri 命令、监听线程、SQLite 读写
+│   ├── Cargo.toml              # Rust 依赖（rusqlite / arboard / enigo）
+│   ├── tauri.conf.json         # 窗口、托盘、打包配置
+│   └── capabilities/           # 权限配置
+├── docs/
+│   └── design.md               # 设计系统文档（配色、间距、组件样式）
+├── .github/workflows/ci.yml    # CI：lint / format / typecheck / test
+├── CHANGELOG.md
 ├── CONTRIBUTING.md
-├── overview.md
-└── package.json
+└── overview.md
 ```
 
-## 质量门禁
+## 开发说明
 
-- **提交前**：husky + lint-staged 自动对改动文件跑 ESLint + Prettier
-- **CI**：每次 push / PR 跑 `lint` / `format:check` / `typecheck` / `test`，任一不过则阻断合并
-- **测试**：Vitest + Testing Library，环境为 jsdom，43/43 通过
+| 命令                   | 作用                           |
+| ---------------------- | ------------------------------ |
+| `npm run dev`          | 只起前端（演示数据，不开后端） |
+| `npm run tauri dev`    | 起完整桌面应用                 |
+| `npm run tauri build`  | 打包安装包                     |
+| `npm run lint`         | ESLint 检查                    |
+| `npm run format`       | Prettier 格式化全部文件        |
+| `npm run format:check` | 只检查格式（CI 用）            |
+| `npm run typecheck`    | TypeScript 类型检查            |
+| `npm run test`         | Vitest 单元测试（43 项）       |
 
-## 版本历史
+几条约定：
 
-| 版本   | 说明                                                                             |
-| ------ | -------------------------------------------------------------------------------- |
-| v0.4.0 | i18n 中英文、卡片网格布局、切换性能优化、ImageThumb 测试修复、App 图标功能移除   |
-| v0.3.0 | 功能完整版：App 来源绑定、搜索、编辑弹窗、收藏重写、置顶、双击复制、过滤自身来源 |
-| v0.2.0 | 代码评审整改（P0/P1/P2 逐项修复）                                                |
-| v0.1.0 | 工程基线建立                                                                     |
+- 样式不用 UI 框架，全部走 `App.css` 里的设计令牌，改色改间距先看 `docs/design.md`
+- 新增 Tauri 命令要同时改三处：`src-tauri/src/lib.rs`、`src-tauri/capabilities/`、`src/api.ts`
+- Rust 命令参数按 camelCase 接收，`api.ts` 里已处理 `group_id` → `groupId` 的转换
+- 前端不吞错：后端调用失败统一抛 `ApiError`，由 UI 决定是 `console.error` 还是给用户 toast
+- CI 只跑前端质量门禁（lint / format / typecheck / test），Tauri 打包在发版时另跑
 
-## License
+## 平台支持
 
-MIT
+| 平台            | 状态                                                                   |
+| --------------- | ---------------------------------------------------------------------- |
+| macOS           | 完整支持：来源 App 识别（NSWorkspace）、全局快捷键、托盘、辅助功能粘贴 |
+| Windows / Linux | 可编译运行，来源 App 识别暂未实现（标记为「未知」），其余功能一致      |
+
+已知限制：来源识别只在 macOS 上有效；全局快捷键目前注册的是 `cmd+shift+v`，非 macOS 平台需自行调整。
+
+## 许可
+
+[MIT](LICENSE) © 2026 isnotry

@@ -30,5 +30,7 @@ src-tauri/gen/
 # Test coverage
 coverage
 
-# Local assistant memory
+# Local assistant memory & publish metadata
 .workbuddy
+.wbapp_*.genie
+temp/
