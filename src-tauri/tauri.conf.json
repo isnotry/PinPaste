@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "pinpaste",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "identifier": "com.kingsir.pinpaste",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -9,18 +9,18 @@
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
-    "app": {
-        "windows": [
-            {
-                "title": "PinPaste",
-                "width": 440,
-                "height": 620,
-                "resizable": true,
-                "fullscreen": false,
-                "visible": false,
-                "alwaysOnTop": true
-            }
-        ],
+  "app": {
+    "windows": [
+      {
+        "title": "PinPaste",
+        "width": 440,
+        "height": 620,
+        "resizable": true,
+        "fullscreen": false,
+        "visible": false,
+        "alwaysOnTop": true
+      }
+    ],
     "security": {
       "csp": null
     }

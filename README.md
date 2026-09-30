@@ -52,7 +52,7 @@ npm run tauri dev    # 启动完整桌面应用（前端 + Rust 后端）
 npm run tauri build
 ```
 
-产物在 `src-tauri/target/release/bundle/`。仓库当前只发源码与版本标签，未做签名分发，安装包请自行打包。
+产物在 `src-tauri/target/release/bundle/`。也可以直接从 [Releases](https://github.com/isnotry/PinPaste/releases) 下载现成的 dmg —— 未做 Apple 开发者签名，首次打开需在「系统设置 → 隐私与安全性」里点「仍要打开」，或右键 App 选「打开」。
 
 ### 浏览器里看界面
 
