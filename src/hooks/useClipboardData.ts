@@ -10,6 +10,7 @@ import {
   unfavoriteItem,
   createGroup,
   deleteGroup,
+  isTauriEnv,
   type GetItemsOpts,
 } from "../api";
 import { GROUP_COLORS } from "../config";
@@ -50,6 +51,7 @@ export function useClipboardData(
 
   // 实时接收剪贴板监听推送（去重：同 id 移到最前）
   useEffect(() => {
+    if (!isTauriEnv) return;
     const un = listen<ClipboardItem>("clipboard-new", (e) => {
       const it = e.payload;
       setItems((prev) => {

@@ -10,6 +10,7 @@ import {
   updateGroup,
   togglePin,
   copyItem,
+  isTauriEnv,
   ApiError,
 } from "./api";
 import { useClipboardData } from "./hooks/useClipboardData";
@@ -21,8 +22,6 @@ import { EditDialog } from "./components/EditDialog";
 import { searchMatch } from "./utils";
 import type { ClipboardItem, Group, Settings, ThemeMode, Lang } from "./types";
 import "./App.css";
-
-const isTauriEnv = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export default function App() {
   const { lang, t, changeLang } = useLang();

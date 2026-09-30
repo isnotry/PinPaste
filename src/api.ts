@@ -1,5 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { ClipboardItem, Group, Settings } from "./types";
+import { demoCall } from "./demo";
+
+/** 是否运行在 Tauri 桌面壳内；浏览器里跑 `npm run dev` 时为 false */
+export const isTauriEnv = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export interface GetItemsOpts {
   limit?: number;
@@ -23,6 +27,8 @@ export class ApiError extends Error {
 }
 
 async function call<T>(cmd: string, args?: Record<string, unknown>, msg?: string): Promise<T> {
+  // 浏览器预览（`npm run dev` 直接打开网页）：不调后端，改用演示数据
+  if (!isTauriEnv) return Promise.resolve(demoCall<T>(cmd, args));
   try {
     return await invoke<T>(cmd, args);
   } catch (e) {
