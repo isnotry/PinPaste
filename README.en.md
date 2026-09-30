@@ -52,7 +52,7 @@ Requirements: Node.js 22+, a stable Rust toolchain, and Xcode Command Line Tools
 npm run tauri build
 ```
 
-Output lands in `src-tauri/target/release/bundle/`. This repository ships source and version tags only — there is no signed binary, so build your own installer.
+Output lands in `src-tauri/target/release/bundle/`. Ready-made `.dmg` builds are also on the [Releases](https://github.com/isnotry/PinPaste/releases) page — they are not signed with an Apple Developer certificate, so on first launch go to System Settings → Privacy & Security and click "Open Anyway" (or right-click the app and choose Open).
 
 ### Preview the UI in a browser
 
