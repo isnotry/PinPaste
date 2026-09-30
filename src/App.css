@@ -398,7 +398,7 @@ body {
   display: flex;
   align-items: stretch;
   gap: 0;
-  height: 64px;
+  min-height: 64px; /* 图片条目带 36px 缩略图 + meta 行，固定高会裁掉 meta */
   padding: 0;
   border-radius: var(--r-md);
   background: var(--panel);
@@ -1000,6 +1000,31 @@ body {
   font-size: 11px;
   color: var(--text-dim);
   line-height: 1.6;
+}
+
+.panel-footer {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.repo-link {
+  color: var(--text-2);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 2px;
+}
+
+.repo-link:hover {
+  color: var(--accent);
+}
+
+/* 触屏点完容易粘住 hover 态，这里还原 */
+@media (hover: none) {
+  .repo-link:hover {
+    color: var(--text-2);
+  }
 }
 
 /* ═══ Toast ═══ */

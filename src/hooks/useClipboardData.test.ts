@@ -29,6 +29,8 @@ vi.mock("../api", () => ({
   unfavoriteItem: (...a: unknown[]) => mockUnfavoriteItem(...a),
   createGroup: (...a: unknown[]) => mockCreateGroup(...a),
   deleteGroup: (...a: unknown[]) => mockDeleteGroup(...a),
+  // 测试按「运行在 Tauri 壳内」处理，否则实时监听分支会被跳过
+  isTauriEnv: true,
 }));
 vi.mock("@tauri-apps/api/event", () => ({
   listen: (event: string, cb: (e: { payload: ClipboardItem }) => void) => mockListen(event, cb),

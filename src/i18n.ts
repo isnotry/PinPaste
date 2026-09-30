@@ -71,6 +71,9 @@ const dict: Dict = {
   settings_clean_days: ["天", "days"],
   settings_language: ["语言", "Language"],
 
+  // About
+  repo_link: ["GitHub 开源仓库", "Open source on GitHub"],
+
   // Empty
   empty_fav: ["还没有收藏的内容", "No favorites yet"],
   empty_all: ["暂无剪贴板记录", "No clipboard history"],

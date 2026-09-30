@@ -116,6 +116,17 @@ export function SettingsPanel(props: SettingsPanelProps) {
         </div>
 
         <div className="panel-tip">⌘+⇧+V · {t("action_close")}</div>
+
+        <div className="panel-footer">
+          <a
+            className="repo-link"
+            href="https://github.com/isnotry/PinPaste"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t("repo_link")}
+          </a>
+        </div>
       </div>
     </div>
   );
