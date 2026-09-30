@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.5.0 (2026-09-30)
+
+首个公开版本，仓库开源并发布 dmg 安装包。
+
+### 新增
+
+- **开源发布**：MIT 协议（`LICENSE`）、中英双语 README（`README.md` / `README.en.md`）、真实界面截图（`docs/screenshot*.png`）
+- **浏览器演示数据模式**：非 Tauri 环境下 `src/demo.ts` 提供示例条目，不装 Rust 也能 `npm run dev` 预览 UI、改样式、拍截图
+- **设置面板仓库入口**：底部新增中英双语「GitHub 开源仓库」文字链接
+- **dmg 安装包**：`pinpaste_0.5.0_aarch64.dmg`（Apple Silicon，6.5 MB，未签名），发布在仓库 Releases
+
+### 修复
+
+- **图片条目排版**：固定 64px 行高装不下 36px 缩略图，时间行被裁掉一半，改为 `min-height`
+
+### 变更
+
+- **版本号统一**：`package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` 全部对齐 0.5.0
+
 ## v0.4.0 (2026-07-26)
 
 ### 新增
