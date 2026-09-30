@@ -157,8 +157,7 @@ pinpaste/
 │   └── design.md               # 设计系统文档（配色、间距、组件样式）
 ├── .github/workflows/ci.yml    # CI：lint / format / typecheck / test
 ├── CHANGELOG.md
-├── CONTRIBUTING.md
-└── overview.md
+└── CONTRIBUTING.md
 ```
 
 ## 开发说明

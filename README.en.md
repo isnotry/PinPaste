@@ -157,8 +157,7 @@ pinpaste/
 │   └── design.md               # Design system notes (colors, spacing, component styles)
 ├── .github/workflows/ci.yml    # CI: lint / format / typecheck / test
 ├── CHANGELOG.md
-├── CONTRIBUTING.md
-└── overview.md
+└── CONTRIBUTING.md
 ```
 
 ## Development notes
